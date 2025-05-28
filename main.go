@@ -13,6 +13,7 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -252,4 +253,37 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	type Result struct {
+		D float64
+		T [3]float64
+	}
+
+	A := NewMatrix(7, 7)
+	for _, v := range set.ByName["A"].X {
+		A.Data = append(A.Data, float64(v))
+	}
+	u := NewMatrix(7, 1, avg...)
+	results := make([]Result, 0, 3)
+	for i := 0; i < 33; i++ {
+		g := NewMatrix(7, 1)
+		for j := 0; j < 7; j++ {
+			g.Data = append(g.Data, rng.NormFloat64())
+		}
+		s := A.MulT(g).Add(u)
+		result := Result{}
+		for j, v := range s.Data[:4] {
+			diff := v - iris[0].Measures[j]
+			result.D += diff * diff
+		}
+		copy(result.T[:], s.Data[4:7])
+		results = append(results, result)
+	}
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].D < results[j].D
+	})
+	for _, r := range results {
+		fmt.Println(r.T)
+	}
+	fmt.Println(Labels[iris[0].Label], iris[0].Label)
 }
