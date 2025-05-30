@@ -113,25 +113,22 @@ func Load() []Fisher {
 	return fisher
 }
 
-func main() {
-	iris := Load()
-	avg := make([]float64, 7)
-	for _, v := range iris {
-		labels := make([]float64, 3)
-		labels[Labels[v.Label]] = 1
-		measures := append(v.Measures, labels...)
+// NewMultiVariateGaussian
+func NewMultiVariateGaussian(rng *rand.Rand, name string, size int, vectors [][]float64) (A Matrix, u Matrix) {
+	avg := make([]float64, size)
+	for _, measures := range vectors {
 		for i, v := range measures {
 			avg[i] += v
 		}
 	}
 	for i := range avg {
-		avg[i] /= float64(len(iris))
+		avg[i] /= float64(len(vectors))
 	}
-	cov := [7][7]float64{}
-	for _, v := range iris {
-		labels := make([]float64, 3)
-		labels[Labels[v.Label]] = 1
-		measures := append(v.Measures, labels...)
+	cov := make([][]float64, size)
+	for i := range cov {
+		cov[i] = make([]float64, size)
+	}
+	for _, measures := range vectors {
 		for i, v := range measures {
 			for ii, vv := range measures {
 				diff1 := avg[i] - v
@@ -142,7 +139,7 @@ func main() {
 	}
 	for i := range cov {
 		for j := range cov[i] {
-			cov[i][j] = cov[i][j] / float64(len(iris))
+			cov[i][j] = cov[i][j] / float64(len(vectors))
 		}
 	}
 	for i := range cov {
@@ -150,10 +147,8 @@ func main() {
 	}
 	fmt.Println(avg)
 
-	rng := rand.New(rand.NewSource(1))
-
 	set := tf32.NewSet()
-	set.Add("A", 7, 7)
+	set.Add("A", size, size)
 
 	for i := range set.Weights {
 		w := set.Weights[i]
@@ -176,7 +171,7 @@ func main() {
 	}
 
 	others := tf32.NewSet()
-	others.Add("E", 7, 7)
+	others.Add("E", size, size)
 	E := others.ByName["E"]
 	for i := range cov {
 		for j := range cov[i] {
@@ -249,21 +244,37 @@ func main() {
 	scatter.GlyphStyle.Shape = draw.CircleGlyph{}
 	p.Add(scatter)
 
-	err = p.Save(8*vg.Inch, 8*vg.Inch, "epochs.png")
+	err = p.Save(8*vg.Inch, 8*vg.Inch, fmt.Sprintf("epochs_%s.png", name))
 	if err != nil {
 		panic(err)
 	}
+
+	A = NewMatrix(size, size)
+	for _, v := range set.ByName["A"].X {
+		A.Data = append(A.Data, float64(v))
+	}
+	u = NewMatrix(size, 1, avg...)
+	return A, u
+}
+
+func main() {
+	iris := Load()
+	vectors := make([][]float64, len(iris))
+	for i := range iris {
+		vectors[i] = append(vectors[i], iris[i].Measures...)
+		labels := make([]float64, 3)
+		labels[Labels[iris[i].Label]] = 1
+		vectors[i] = append(vectors[i], labels...)
+	}
+
+	rng := rand.New(rand.NewSource(1))
+	A, u := NewMultiVariateGaussian(rng, "all", 7, vectors)
 
 	type Result struct {
 		D float64
 		T [3]float64
 	}
 
-	A := NewMatrix(7, 7)
-	for _, v := range set.ByName["A"].X {
-		A.Data = append(A.Data, float64(v))
-	}
-	u := NewMatrix(7, 1, avg...)
 	correct := 0
 	for k := range iris {
 		results := make([]Result, 0, 3)
