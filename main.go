@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"embed"
 	"encoding/csv"
+	"flag"
 	"fmt"
 	"io"
 	"math"
@@ -146,6 +147,7 @@ func NewMultiVariateGaussian(rng *rand.Rand, name string, size int, vectors [][]
 		fmt.Println(cov[i])
 	}
 	fmt.Println(avg)
+	fmt.Println()
 
 	set := tf32.NewSet()
 	set.Add("A", size, size)
@@ -227,7 +229,7 @@ func NewMultiVariateGaussian(rng *rand.Rand, name string, size int, vectors [][]
 			}
 		}
 		points = append(points, plotter.XY{X: float64(i), Y: float64(cost)})
-		fmt.Println(i, cost)
+		//fmt.Println(i, cost)
 	}
 
 	p := plot.New()
@@ -257,48 +259,114 @@ func NewMultiVariateGaussian(rng *rand.Rand, name string, size int, vectors [][]
 	return A, u
 }
 
+var (
+	// FlagAll all in one
+	FlagAll = flag.Bool("all", false, "all in one")
+)
+
 func main() {
-	iris := Load()
-	vectors := make([][]float64, len(iris))
-	for i := range iris {
-		vectors[i] = append(vectors[i], iris[i].Measures...)
-		labels := make([]float64, 3)
-		labels[Labels[iris[i].Label]] = 1
-		vectors[i] = append(vectors[i], labels...)
+	flag.Parse()
+
+	if *FlagAll {
+		iris := Load()
+		vectors := make([][]float64, len(iris))
+		for i := range iris {
+			vectors[i] = append(vectors[i], iris[i].Measures...)
+			labels := make([]float64, 3)
+			labels[Labels[iris[i].Label]] = 1
+			vectors[i] = append(vectors[i], labels...)
+		}
+
+		rng := rand.New(rand.NewSource(1))
+		A, u := NewMultiVariateGaussian(rng, "all", 7, vectors)
+
+		type Result struct {
+			D float64
+			T [3]float64
+		}
+
+		correct := 0
+		for k := range iris {
+			results := make([]Result, 0, 3)
+			for i := 0; i < 33; i++ {
+				g := NewMatrix(7, 1)
+				for j := 0; j < 7; j++ {
+					g.Data = append(g.Data, rng.NormFloat64())
+				}
+				s := A.MulT(g).Add(u)
+				result := Result{}
+				for j, v := range s.Data[:4] {
+					diff := v - iris[k].Measures[j]
+					result.D += diff * diff
+				}
+				copy(result.T[:], s.Data[4:7])
+				results = append(results, result)
+			}
+			sort.Slice(results, func(i, j int) bool {
+				return results[i].D < results[j].D
+			})
+			index, max := 0, 0.0
+			for i, v := range results[0].T {
+				if v > max {
+					index, max = i, v
+				}
+			}
+			if Labels[iris[k].Label] == index {
+				correct++
+			}
+		}
+		fmt.Println(correct, float64(correct)/float64(len(iris)))
+		return
 	}
 
+	iris := Load()
+	var vectors [3][][]float64
+	for j := range vectors {
+		vectors[j] = make([][]float64, len(iris))
+		for i := range iris {
+			vectors[j][i] = append(vectors[j][i], iris[i].Measures...)
+			labels := make([]float64, 1)
+			if Labels[iris[i].Label] == j {
+				labels[0] = 1
+			}
+			vectors[j][i] = append(vectors[j][i], labels...)
+		}
+	}
 	rng := rand.New(rand.NewSource(1))
-	A, u := NewMultiVariateGaussian(rng, "all", 7, vectors)
+	var A, u [3]Matrix
+	for i := range vectors {
+		A[i], u[i] = NewMultiVariateGaussian(rng, fmt.Sprintf("%d", i), 5, vectors[i])
+	}
 
 	type Result struct {
 		D float64
-		T [3]float64
+		T float64
 	}
 
 	correct := 0
 	for k := range iris {
-		results := make([]Result, 0, 3)
-		for i := 0; i < 33; i++ {
-			g := NewMatrix(7, 1)
-			for j := 0; j < 7; j++ {
-				g.Data = append(g.Data, rng.NormFloat64())
-			}
-			s := A.MulT(g).Add(u)
-			result := Result{}
-			for j, v := range s.Data[:4] {
-				diff := v - iris[k].Measures[j]
-				result.D += diff * diff
-			}
-			copy(result.T[:], s.Data[4:7])
-			results = append(results, result)
-		}
-		sort.Slice(results, func(i, j int) bool {
-			return results[i].D < results[j].D
-		})
 		index, max := 0, 0.0
-		for i, v := range results[0].T {
-			if v > max {
-				index, max = i, v
+		for l := range A {
+			results := make([]Result, 0, 3)
+			for i := 0; i < 33; i++ {
+				g := NewMatrix(5, 1)
+				for j := 0; j < 5; j++ {
+					g.Data = append(g.Data, rng.NormFloat64())
+				}
+				s := A[l].MulT(g).Add(u[l])
+				result := Result{}
+				for j, v := range s.Data[:4] {
+					diff := v - iris[k].Measures[j]
+					result.D += diff * diff
+				}
+				result.T = s.Data[4]
+				results = append(results, result)
+			}
+			sort.Slice(results, func(i, j int) bool {
+				return results[i].D < results[j].D
+			})
+			if results[0].T > max {
+				max, index = results[0].T, l
 			}
 		}
 		if Labels[iris[k].Label] == index {
