@@ -348,7 +348,7 @@ func main() {
 		index, max := 0, 0.0
 		for l := range A {
 			results := make([]Result, 0, 3)
-			for i := 0; i < 33; i++ {
+			for i := 0; i < 1024; i++ {
 				g := NewMatrix(5, 1)
 				for j := 0; j < 5; j++ {
 					g.Data = append(g.Data, rng.NormFloat64())
