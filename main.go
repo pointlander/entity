@@ -18,7 +18,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pointlander/gradient/tf32"
+	"github.com/pointlander/gradient/tf64"
 
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
@@ -149,67 +149,67 @@ func NewMultiVariateGaussian(rng *rand.Rand, name string, size int, vectors [][]
 	fmt.Println(avg)
 	fmt.Println()
 
-	set := tf32.NewSet()
+	set := tf64.NewSet()
 	set.Add("A", size, size)
 
 	for i := range set.Weights {
 		w := set.Weights[i]
 		if strings.HasPrefix(w.N, "b") {
 			w.X = w.X[:cap(w.X)]
-			w.States = make([][]float32, StateTotal)
+			w.States = make([][]float64, StateTotal)
 			for i := range w.States {
-				w.States[i] = make([]float32, len(w.X))
+				w.States[i] = make([]float64, len(w.X))
 			}
 			continue
 		}
 		factor := math.Sqrt(2.0 / float64(w.S[0]))
 		for i := 0; i < cap(w.X); i++ {
-			w.X = append(w.X, float32(rng.NormFloat64()*factor))
+			w.X = append(w.X, rng.NormFloat64()*factor)
 		}
-		w.States = make([][]float32, StateTotal)
+		w.States = make([][]float64, StateTotal)
 		for i := range w.States {
-			w.States[i] = make([]float32, len(w.X))
+			w.States[i] = make([]float64, len(w.X))
 		}
 	}
 
-	others := tf32.NewSet()
+	others := tf64.NewSet()
 	others.Add("E", size, size)
 	E := others.ByName["E"]
 	for i := range cov {
 		for j := range cov[i] {
-			E.X = append(E.X, float32(cov[i][j]))
+			E.X = append(E.X, cov[i][j])
 		}
 	}
 
-	loss := tf32.Sum(tf32.Quadratic(others.Get("E"), tf32.Mul(set.Get("A"), set.Get("A"))))
+	loss := tf64.Sum(tf64.Quadratic(others.Get("E"), tf64.Mul(set.Get("A"), set.Get("A"))))
 
 	points := make(plotter.XYs, 0, 8)
 	for i := 0; i < 1024; i++ {
-		pow := func(x float32) float32 {
-			y := math.Pow(float64(x), float64(i+1))
+		pow := func(x float64) float64 {
+			y := math.Pow(x, float64(i+1))
 			if math.IsNaN(y) || math.IsInf(y, 0) {
 				return 0
 			}
-			return float32(y)
+			return y
 		}
 
 		set.Zero()
 		others.Zero()
-		cost := tf32.Gradient(loss).X[0]
+		cost := tf64.Gradient(loss).X[0]
 		if math.IsNaN(float64(cost)) || math.IsInf(float64(cost), 0) {
 			fmt.Println(i, cost)
 			break
 		}
 
-		norm := float32(0.0)
+		norm := 0.0
 		for _, p := range set.Weights {
 			for _, d := range p.D {
 				norm += d * d
 			}
 		}
-		norm = float32(math.Sqrt(float64(norm)))
+		norm = math.Sqrt(norm)
 		b1, b2 := pow(B1), pow(B2)
-		scaling := float32(1.0)
+		scaling := 1.0
 		if norm > 1 {
 			scaling = 1 / norm
 		}
@@ -225,7 +225,7 @@ func NewMultiVariateGaussian(rng *rand.Rand, name string, size int, vectors [][]
 				if vhat < 0 {
 					vhat = 0
 				}
-				w.X[l] -= Eta * mhat / (float32(math.Sqrt(float64(vhat))) + 1e-8)
+				w.X[l] -= Eta * mhat / (math.Sqrt(vhat) + 1e-8)
 			}
 		}
 		points = append(points, plotter.XY{X: float64(i), Y: float64(cost)})
