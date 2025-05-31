@@ -339,34 +339,45 @@ func main() {
 	}
 
 	type Result struct {
-		D float64
-		T float64
+		Feature int
+		Value   int
+		Fitness float64
 	}
 
 	correct := 0
 	for k := range iris {
-		index, max := 0, 0.0
+		results := make([]Result, 0, 3)
 		for l := range A {
-			results := make([]Result, 0, 3)
-			for i := 0; i < 1024; i++ {
+			for i := 0; i < 32*1024; i++ {
 				g := NewMatrix(5, 1)
 				for j := 0; j < 5; j++ {
 					g.Data = append(g.Data, rng.NormFloat64())
 				}
 				s := A[l].MulT(g).Add(u[l])
-				result := Result{}
-				for j, v := range s.Data[:4] {
-					diff := v - iris[k].Measures[j]
-					result.D += diff * diff
+				for j := 0; j < 2; j++ {
+					result := Result{
+						Feature: l,
+						Value:   j,
+					}
+					vector := make([]float64, 0, 5)
+					vector = append(vector, iris[k].Measures...)
+					vector = append(vector, float64(j))
+					for x, v := range s.Data {
+						diff := v - vector[x]
+						result.Fitness += diff * diff
+					}
+					results = append(results, result)
 				}
-				result.T = s.Data[4]
-				results = append(results, result)
 			}
-			sort.Slice(results, func(i, j int) bool {
-				return results[i].D < results[j].D
-			})
-			if results[0].T > max {
-				max, index = results[0].T, l
+		}
+		sort.Slice(results, func(i, j int) bool {
+			return results[i].Fitness < results[j].Fitness
+		})
+		index := 0
+		for i := range results {
+			if results[i].Value == 1 {
+				index = results[i].Feature
+				break
 			}
 		}
 		if Labels[iris[k].Label] == index {
