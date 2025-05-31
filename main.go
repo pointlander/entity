@@ -264,6 +264,25 @@ var (
 	FlagAll = flag.Bool("all", false, "all in one")
 )
 
+// Dot is the dot product
+func Dot(a, b []float64) float64 {
+	c := 0.0
+	for i, v := range a {
+		c += v * b[i]
+	}
+	return c
+}
+
+// L2 is the L2 norm
+func L2(a, b []float64) float64 {
+	c := 0.0
+	for i, v := range a {
+		diff := v - b[i]
+		c += diff * diff
+	}
+	return c
+}
+
 func main() {
 	flag.Parse()
 
@@ -362,10 +381,8 @@ func main() {
 					vector := make([]float64, 0, 5)
 					vector = append(vector, iris[k].Measures...)
 					vector = append(vector, float64(j))
-					for x, v := range s.Data {
-						diff := v - vector[x]
-						result.Fitness += diff * diff
-					}
+					//result.Fitness = Dot(s.Data, vector) / (math.Sqrt(Dot(s.Data, s.Data)) * math.Sqrt(Dot(vector, vector)))
+					result.Fitness = L2(s.Data, vector)
 					results = append(results, result)
 				}
 			}
