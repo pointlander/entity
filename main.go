@@ -381,7 +381,7 @@ func main() {
 					vector := make([]float64, 0, 5)
 					vector = append(vector, iris[k].Measures...)
 					vector = append(vector, float64(j))
-					//result.Fitness = Dot(s.Data, vector) / (math.Sqrt(Dot(s.Data, s.Data)) * math.Sqrt(Dot(vector, vector)))
+					//result.Fitness = math.Sqrt(Dot(s.Data, vector)) / (math.Sqrt(Dot(s.Data, s.Data)) * math.Sqrt(Dot(vector, vector)))
 					result.Fitness = L2(s.Data, vector)
 					results = append(results, result)
 				}
