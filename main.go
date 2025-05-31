@@ -387,6 +387,33 @@ func main() {
 				}
 			}
 		}
+		avg, counts := [3]float64{}, [3]float64{}
+		for i := range results {
+			if results[i].Value == 1 {
+				avg[results[i].Feature] += results[i].Fitness
+				counts[results[i].Feature]++
+			}
+		}
+		for i := range avg {
+			avg[i] /= counts[i]
+		}
+		variance := [3]float64{}
+		for i := range results {
+			if results[i].Value == 1 {
+				diff := results[i].Fitness - avg[results[i].Feature]
+				variance[results[i].Feature] += diff * diff
+			}
+		}
+		for i := range variance {
+			variance[i] /= counts[i]
+		}
+		max, idx := 0.0, 0
+		for i := range variance {
+			if variance[i] > max {
+				max, idx = variance[i], i
+			}
+		}
+		fmt.Println(idx, iris[k].Label)
 		sort.Slice(results, func(i, j int) bool {
 			return results[i].Fitness < results[j].Fitness
 		})
