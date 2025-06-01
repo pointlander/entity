@@ -20,6 +20,7 @@ import (
 
 	"github.com/pointlander/gradient/tf64"
 
+	"github.com/alixaxel/pagerank"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
@@ -366,26 +367,51 @@ func main() {
 	correct := 0
 	for k := range iris {
 		results := make([]Result, 0, 3)
+		vector := [][]float64{make([]float64, 0, 5), make([]float64, 0, 5)}
+		vector[0] = append(vector[0], iris[k].Measures...)
+		vector[0] = append(vector[0], 0)
+		vector[1] = append(vector[1], iris[k].Measures...)
+		vector[1] = append(vector[1], 1)
 		for l := range A {
+			graph := pagerank.NewGraph()
+			vectors := make([][]float64, 0, 1024)
+			vectors = append(vectors, vector[0])
+			vectors = append(vectors, vector[1])
 			for i := 0; i < 32*1024; i++ {
 				g := NewMatrix(5, 1)
 				for j := 0; j < 5; j++ {
 					g.Data = append(g.Data, rng.NormFloat64())
 				}
 				s := A[l].MulT(g).Add(u[l])
-				for j := 0; j < 2; j++ {
+				if i < 33 {
+					vectors = append(vectors, s.Data)
+				}
+				for j := range vector {
 					result := Result{
 						Feature: l,
 						Value:   j,
 					}
-					vector := make([]float64, 0, 5)
-					vector = append(vector, iris[k].Measures...)
-					vector = append(vector, float64(j))
 					//result.Fitness = math.Sqrt(Dot(s.Data, vector)) / (math.Sqrt(Dot(s.Data, s.Data)) * math.Sqrt(Dot(vector, vector)))
-					result.Fitness = L2(s.Data, vector)
+					result.Fitness = L2(s.Data, vector[j])
 					results = append(results, result)
 				}
 			}
+			for i, v := range vectors {
+				for j, vv := range vectors {
+					vvv := math.Sqrt(L2(v, vv))
+					if vvv > 0 {
+						vvv = 1 / vvv
+					}
+					graph.Link(uint32(i), uint32(j), vvv)
+				}
+			}
+			max, n := 0.0, uint32(0)
+			graph.Rank(1.0, 1e-3, func(node uint32, rank float64) {
+				if rank > max {
+					max, n = rank, node
+				}
+			})
+			fmt.Println(max, n)
 		}
 		avg, counts := [3]float64{}, [3]float64{}
 		for i := range results {
