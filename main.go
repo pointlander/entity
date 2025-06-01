@@ -411,7 +411,7 @@ func main() {
 					max, n = rank, node
 				}
 			})
-			fmt.Println(max, n)
+			fmt.Println(max, vectors[n][4])
 		}
 		avg, counts := [3]float64{}, [3]float64{}
 		for i := range results {
