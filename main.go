@@ -20,7 +20,7 @@ import (
 
 	"github.com/pointlander/gradient/tf64"
 
-	"github.com/alixaxel/pagerank"
+	// /"github.com/alixaxel/pagerank"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
@@ -373,19 +373,19 @@ func main() {
 		vector[1] = append(vector[1], iris[k].Measures...)
 		vector[1] = append(vector[1], 1)
 		for l := range A {
-			graph := pagerank.NewGraph()
+			/*graph := pagerank.NewGraph()
 			vectors := make([][]float64, 0, 1024)
 			vectors = append(vectors, vector[0])
-			vectors = append(vectors, vector[1])
+			vectors = append(vectors, vector[1])*/
 			for i := 0; i < 32*1024; i++ {
 				g := NewMatrix(5, 1)
 				for j := 0; j < 5; j++ {
-					g.Data = append(g.Data, rng.NormFloat64())
+					g.Data = append(g.Data, rng.NormFloat64()*rng.NormFloat64()+rng.NormFloat64())
 				}
 				s := A[l].MulT(g).Add(u[l])
-				if i < 33 {
+				/*if i < 33 {
 					vectors = append(vectors, s.Data)
-				}
+				}*/
 				for j := range vector {
 					result := Result{
 						Feature: l,
@@ -396,7 +396,7 @@ func main() {
 					results = append(results, result)
 				}
 			}
-			for i, v := range vectors {
+			/*for i, v := range vectors {
 				for j, vv := range vectors {
 					vvv := math.Sqrt(L2(v, vv))
 					if vvv > 0 {
@@ -411,7 +411,7 @@ func main() {
 					max, n = rank, node
 				}
 			})
-			fmt.Println(max, vectors[n][4])
+			fmt.Println(max, vectors[n][4])*/
 		}
 		avg, counts := [3]float64{}, [3]float64{}
 		for i := range results {
