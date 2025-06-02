@@ -446,7 +446,7 @@ func main() {
 			})
 			fmt.Println(max, vectors[n][4])*/
 		}
-		avg, counts := [3]float64{}, [3]float64{}
+		/*avg, counts := [3]float64{}, [3]float64{}
 		for i := range results {
 			if results[i].Value == 1 {
 				avg[results[i].Feature] += results[i].Fitness
@@ -472,7 +472,7 @@ func main() {
 				max, idx = variance[i], i
 			}
 		}
-		fmt.Println(idx, iris[k].Label)
+		fmt.Println(idx, iris[k].Label)*/
 		sort.Slice(results, func(i, j int) bool {
 			return results[i].Fitness < results[j].Fitness
 		})
