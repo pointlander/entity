@@ -47,6 +47,22 @@ const (
 	StateTotal
 )
 
+var Galaxies = [][]float64{
+	{2.48, 00, 42, 41.877, 40, 51, 54.71}, // M32
+	{2.69, 00, 40, 22.054, 41, 41, 08.04}, // M110
+	{2.01, 00, 38, 57.523, 48, 20, 14.86}, // NGC 185
+	{2.20, 00, 33, 12.131, 48, 30, 32.82}, // NGC 147
+	{2.43, 00, 45, 39.264, 38, 02, 35.17}, // Andromeda I
+	{2.13, 01, 16, 28.136, 33, 25, 50.36}, // Andromeda II
+	{2.44, 00, 35, 31.777, 36, 30, 04.19}, // Andromeda III
+	{2.52, 01, 10, 16.952, 47, 37, 40.12}, // Andromeda V
+	{2.55, 23, 51, 46.516, 24, 34, 55.69}, // Andromeda VI
+	{2.49, 23, 26, 33.321, 50, 40, 49.98}, // Andromeda VII
+	{2.70, 00, 42, 06.000, 40, 37, 00.00}, // Andromeda VIII
+	{2.50, 00, 52, 52.493, 43, 11, 55.66}, // Andromeda IX
+	{2.90, 01, 06, 34.740, 44, 48, 23.31}, // Andromeda X
+}
+
 //go:embed iris.zip
 var Iris embed.FS
 
@@ -263,6 +279,8 @@ func NewMultiVariateGaussian(rng *rand.Rand, name string, size int, vectors [][]
 var (
 	// FlagAll all in one
 	FlagAll = flag.Bool("all", false, "all in one")
+	// FlagGalaxy galaxy mode
+	FlagGalaxy = flag.Bool("galaxy", false, "galaxy mode")
 )
 
 // Dot is the dot product
@@ -286,6 +304,21 @@ func L2(a, b []float64) float64 {
 
 func main() {
 	flag.Parse()
+
+	if *FlagGalaxy {
+		rng := rand.New(rand.NewSource(1))
+		A, u := NewMultiVariateGaussian(rng, "galaxies", 7, Galaxies)
+		fmt.Println(u)
+		fmt.Println()
+		for i, v := range A.Data {
+			if i%7 == 0 && i != 0 {
+				fmt.Println()
+			}
+			fmt.Printf("%f ", v)
+		}
+		fmt.Println()
+		return
+	}
 
 	if *FlagAll {
 		iris := Load()
