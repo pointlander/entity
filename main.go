@@ -377,12 +377,14 @@ func main() {
 	for j := range vectors {
 		vectors[j] = make([][]float64, len(iris))
 		for i := range iris {
-			vectors[j][i] = append(vectors[j][i], iris[i].Measures...)
-			labels := make([]float64, 1)
-			if Labels[iris[i].Label] == j {
-				labels[0] = 1
+			if j == Labels[iris[i].Label] {
+				vectors[j][i] = append(vectors[j][i], iris[i].Measures...)
+				labels := make([]float64, 1)
+				if Labels[iris[i].Label] == j {
+					labels[0] = 1
+				}
+				vectors[j][i] = append(vectors[j][i], labels...)
 			}
-			vectors[j][i] = append(vectors[j][i], labels...)
 		}
 	}
 	rng := rand.New(rand.NewSource(1))
