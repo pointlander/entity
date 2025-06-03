@@ -398,92 +398,112 @@ func main() {
 	}
 
 	correct := 0
-	for k := range iris {
-		results := make([]Result, 0, 3)
-		vector := [][]float64{make([]float64, 0, 5), make([]float64, 0, 5)}
-		vector[0] = append(vector[0], iris[k].Measures...)
-		vector[0] = append(vector[0], 0)
-		vector[1] = append(vector[1], iris[k].Measures...)
-		vector[1] = append(vector[1], 1)
-		for l := range A {
-			/*graph := pagerank.NewGraph()
-			vectors := make([][]float64, 0, 1024)
-			vectors = append(vectors, vector[0])
-			vectors = append(vectors, vector[1])*/
-			for i := 0; i < 32*1024; i++ {
-				g := NewMatrix(5, 1)
-				for j := 0; j < 5; j++ {
-					g.Data = append(g.Data, rng.NormFloat64()*rng.NormFloat64()+rng.NormFloat64())
-				}
-				s := A[l].MulT(g).Add(u[l])
-				/*if i < 33 {
-					vectors = append(vectors, s.Data)
-				}*/
-				for j := range vector {
-					result := Result{
-						Feature: l,
-						Value:   j,
+	var histogram [150][3]int
+	for s := 0; s < 1024; s++ {
+		for k := range iris {
+			results := make([]Result, 0, 3)
+			vector := [][]float64{make([]float64, 0, 5), make([]float64, 0, 5)}
+			vector[0] = append(vector[0], iris[k].Measures...)
+			vector[0] = append(vector[0], 0)
+			vector[1] = append(vector[1], iris[k].Measures...)
+			vector[1] = append(vector[1], 1)
+			stddev := make([]float64, 5)
+			for i := range stddev {
+				stddev[i] = rng.NormFloat64()
+			}
+			mean := make([]float64, 5)
+			for i := range mean {
+				mean[i] = rng.NormFloat64()
+			}
+			for l := range A {
+				/*graph := pagerank.NewGraph()
+				vectors := make([][]float64, 0, 1024)
+				vectors = append(vectors, vector[0])
+				vectors = append(vectors, vector[1])*/
+				for i := 0; i < 4*33; i++ {
+					g := NewMatrix(5, 1)
+					for j := 0; j < 5; j++ {
+						g.Data = append(g.Data, rng.NormFloat64()*stddev[j]+mean[j])
 					}
-					//result.Fitness = math.Sqrt(Dot(s.Data, vector)) / (math.Sqrt(Dot(s.Data, s.Data)) * math.Sqrt(Dot(vector, vector)))
-					result.Fitness = L2(s.Data, vector[j])
-					results = append(results, result)
+					s := A[l].MulT(g).Add(u[l])
+					/*if i < 33 {
+						vectors = append(vectors, s.Data)
+					}*/
+					for j := range vector {
+						result := Result{
+							Feature: l,
+							Value:   j,
+						}
+						//result.Fitness = math.Sqrt(Dot(s.Data, vector)) / (math.Sqrt(Dot(s.Data, s.Data)) * math.Sqrt(Dot(vector, vector)))
+						result.Fitness = L2(s.Data, vector[j])
+						results = append(results, result)
+					}
+				}
+				/*for i, v := range vectors {
+					for j, vv := range vectors {
+						vvv := math.Sqrt(L2(v, vv))
+						if vvv > 0 {
+							vvv = 1 / vvv
+						}
+						graph.Link(uint32(i), uint32(j), vvv)
+					}
+				}
+				max, n := 0.0, uint32(0)
+				graph.Rank(1.0, 1e-3, func(node uint32, rank float64) {
+					if rank > max {
+						max, n = rank, node
+					}
+				})
+				fmt.Println(max, vectors[n][4])*/
+			}
+			/*avg, counts := [3]float64{}, [3]float64{}
+			for i := range results {
+				if results[i].Value == 1 {
+					avg[results[i].Feature] += results[i].Fitness
+					counts[results[i].Feature]++
 				}
 			}
-			/*for i, v := range vectors {
-				for j, vv := range vectors {
-					vvv := math.Sqrt(L2(v, vv))
-					if vvv > 0 {
-						vvv = 1 / vvv
-					}
-					graph.Link(uint32(i), uint32(j), vvv)
+			for i := range avg {
+				avg[i] /= counts[i]
+			}
+			variance := [3]float64{}
+			for i := range results {
+				if results[i].Value == 1 {
+					diff := results[i].Fitness - avg[results[i].Feature]
+					variance[results[i].Feature] += diff * diff
 				}
 			}
-			max, n := 0.0, uint32(0)
-			graph.Rank(1.0, 1e-3, func(node uint32, rank float64) {
-				if rank > max {
-					max, n = rank, node
+			for i := range variance {
+				variance[i] /= counts[i]
+			}
+			max, idx := 0.0, 0
+			for i := range variance {
+				if variance[i] > max {
+					max, idx = variance[i], i
 				}
+			}
+			fmt.Println(idx, iris[k].Label)*/
+			sort.Slice(results, func(i, j int) bool {
+				return results[i].Fitness < results[j].Fitness
 			})
-			fmt.Println(max, vectors[n][4])*/
+			index := 0
+			for i := range results {
+				if results[i].Value == 1 {
+					index = results[i].Feature
+					break
+				}
+			}
+			histogram[k][index]++
 		}
-		/*avg, counts := [3]float64{}, [3]float64{}
-		for i := range results {
-			if results[i].Value == 1 {
-				avg[results[i].Feature] += results[i].Fitness
-				counts[results[i].Feature]++
+	}
+	for i := range histogram {
+		max, index := 0, 0
+		for j, v := range histogram[i] {
+			if v > max {
+				max, index = v, j
 			}
 		}
-		for i := range avg {
-			avg[i] /= counts[i]
-		}
-		variance := [3]float64{}
-		for i := range results {
-			if results[i].Value == 1 {
-				diff := results[i].Fitness - avg[results[i].Feature]
-				variance[results[i].Feature] += diff * diff
-			}
-		}
-		for i := range variance {
-			variance[i] /= counts[i]
-		}
-		max, idx := 0.0, 0
-		for i := range variance {
-			if variance[i] > max {
-				max, idx = variance[i], i
-			}
-		}
-		fmt.Println(idx, iris[k].Label)*/
-		sort.Slice(results, func(i, j int) bool {
-			return results[i].Fitness < results[j].Fitness
-		})
-		index := 0
-		for i := range results {
-			if results[i].Value == 1 {
-				index = results[i].Feature
-				break
-			}
-		}
-		if Labels[iris[k].Label] == index {
+		if Labels[iris[i].Label] == index {
 			correct++
 		}
 	}
