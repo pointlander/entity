@@ -334,15 +334,15 @@ func main() {
 			vector[0] = append(vector[0], 0)
 			vector[1] = append(vector[1], flower.Measures...)
 			vector[1] = append(vector[1], 1)
-			stddev := make([]float64, 5)
-			for i := range stddev {
-				stddev[i] = rng.NormFloat64()
-			}
-			mean := make([]float64, 5)
-			for i := range mean {
-				mean[i] = rng.NormFloat64()
-			}
-			for range 8 * 33 {
+			for range 4 * 33 {
+				stddev := make([]float64, 5)
+				for ii := range stddev {
+					stddev[ii] = rng.NormFloat64()
+				}
+				mean := make([]float64, 5)
+				for ii := range mean {
+					mean[ii] = rng.NormFloat64()
+				}
 				for ii := range A {
 					g := NewMatrix(5, 1)
 					for iii := range 5 {
