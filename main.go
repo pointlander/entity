@@ -13,6 +13,7 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -322,9 +323,10 @@ func main() {
 		Fitness float64
 	}
 
-	correct := 0
-	var histogram [150][3]int
-	for range 1024 {
+	done := make(chan [150][3]uint64, 8)
+	process := func(seed int64) {
+		rng := rand.New(rand.NewSource(seed))
+		var histogram [150][3]uint64
 		for i, flower := range iris {
 			results := make([]Result, 0, 3)
 			vector := [][]float64{make([]float64, 0, 5), make([]float64, 0, 5)}
@@ -340,8 +342,8 @@ func main() {
 			for i := range mean {
 				mean[i] = rng.NormFloat64()
 			}
-			for ii := range A {
-				for range 8 * 33 {
+			for range 8 * 33 {
+				for ii := range A {
 					g := NewMatrix(5, 1)
 					for iii := range 5 {
 						g.Data = append(g.Data, rng.NormFloat64()*stddev[iii]+mean[iii])
@@ -355,23 +357,57 @@ func main() {
 						result.Fitness = L2(s.Data, vector[v])
 						results = append(results, result)
 					}
+
 				}
-			}
-			sort.Slice(results, func(i, j int) bool {
-				return results[i].Fitness < results[j].Fitness
-			})
-			index := 0
-			for ii := range results {
-				if results[ii].Value == 1 {
-					index = results[ii].Feature
-					break
+				sort.Slice(results, func(i, j int) bool {
+					return results[i].Fitness < results[j].Fitness
+				})
+				index := 0
+				for ii := range results {
+					if results[ii].Value == 1 {
+						index = results[ii].Feature
+						break
+					}
 				}
+				histogram[i][index]++
 			}
-			histogram[i][index]++
+		}
+		done <- histogram
+	}
+
+	var histogram [150][3]uint64
+	cpus := runtime.NumCPU()
+	flight, i := 0, 0
+	for i < 1024 && flight < cpus {
+		go process(rng.Int63())
+		i++
+		flight++
+	}
+	for i < 1024 {
+		h := <-done
+		for ii := range h {
+			for iii, counts := range h[ii] {
+				histogram[ii][iii] += counts
+			}
+		}
+		flight--
+
+		go process(rng.Int63())
+		i++
+		flight++
+	}
+	for range flight {
+		h := <-done
+		for ii := range h {
+			for iii, counts := range h[ii] {
+				histogram[ii][iii] += counts
+			}
 		}
 	}
+
+	correct := 0
 	for i := range histogram {
-		max, index := 0, 0
+		max, index := uint64(0), 0
 		for ii, count := range histogram[i] {
 			if count > max {
 				max, index = count, ii
