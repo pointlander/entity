@@ -79,6 +79,13 @@ var Labels = map[string]int{
 	"Iris-virginica":  2,
 }
 
+// Inverse is the labels inverse map
+var Inverse = [3]string{
+	"Iris-setosa",
+	"Iris-versicolor",
+	"Iris-virginica",
+}
+
 // Load loads the iris data set
 func Load() []Fisher {
 	file, err := Iris.Open("iris.zip")
@@ -306,7 +313,7 @@ func main() {
 	rng := rand.New(rand.NewSource(1))
 	var A, u [3]Matrix
 	for i := range vectors {
-		A[i], u[i] = NewMultiVariateGaussian(rng, fmt.Sprintf("%d", i), 5, vectors[i])
+		A[i], u[i] = NewMultiVariateGaussian(rng, Inverse[i], 5, vectors[i])
 	}
 
 	type Result struct {
