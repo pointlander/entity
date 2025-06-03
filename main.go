@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"embed"
 	"encoding/csv"
-	"flag"
 	"fmt"
 	"io"
 	"math"
@@ -20,7 +19,6 @@ import (
 
 	"github.com/pointlander/gradient/tf64"
 
-	// /"github.com/alixaxel/pagerank"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
@@ -116,12 +114,12 @@ func Load() []Fisher {
 					Label:    item[4],
 					Index:    i,
 				}
-				for i := range item[:4] {
-					f, err := strconv.ParseFloat(item[i], 64)
+				for ii := range item[:4] {
+					f, err := strconv.ParseFloat(item[ii], 64)
 					if err != nil {
 						panic(err)
 					}
-					record.Measures[i] = f
+					record.Measures[ii] = f
 				}
 				fisher = append(fisher, record)
 			}
@@ -133,6 +131,7 @@ func Load() []Fisher {
 
 // NewMultiVariateGaussian
 func NewMultiVariateGaussian(rng *rand.Rand, name string, size int, vectors [][]float64) (A Matrix, u Matrix) {
+	fmt.Println(name)
 	avg := make([]float64, size)
 	for _, measures := range vectors {
 		for i, v := range measures {
@@ -156,13 +155,15 @@ func NewMultiVariateGaussian(rng *rand.Rand, name string, size int, vectors [][]
 		}
 	}
 	for i := range cov {
-		for j := range cov[i] {
-			cov[i][j] = cov[i][j] / float64(len(vectors))
+		for ii := range cov[i] {
+			cov[i][ii] = cov[i][ii] / float64(len(vectors))
 		}
 	}
+	fmt.Println("K=")
 	for i := range cov {
 		fmt.Println(cov[i])
 	}
+	fmt.Println("u=")
 	fmt.Println(avg)
 	fmt.Println()
 
@@ -174,18 +175,18 @@ func NewMultiVariateGaussian(rng *rand.Rand, name string, size int, vectors [][]
 		if strings.HasPrefix(w.N, "b") {
 			w.X = w.X[:cap(w.X)]
 			w.States = make([][]float64, StateTotal)
-			for i := range w.States {
-				w.States[i] = make([]float64, len(w.X))
+			for ii := range w.States {
+				w.States[ii] = make([]float64, len(w.X))
 			}
 			continue
 		}
 		factor := math.Sqrt(2.0 / float64(w.S[0]))
-		for i := 0; i < cap(w.X); i++ {
+		for range cap(w.X) {
 			w.X = append(w.X, rng.NormFloat64()*factor)
 		}
 		w.States = make([][]float64, StateTotal)
-		for i := range w.States {
-			w.States[i] = make([]float64, len(w.X))
+		for ii := range w.States {
+			w.States[ii] = make([]float64, len(w.X))
 		}
 	}
 
@@ -193,15 +194,15 @@ func NewMultiVariateGaussian(rng *rand.Rand, name string, size int, vectors [][]
 	others.Add("E", size, size)
 	E := others.ByName["E"]
 	for i := range cov {
-		for j := range cov[i] {
-			E.X = append(E.X, cov[i][j])
+		for ii := range cov[i] {
+			E.X = append(E.X, cov[i][ii])
 		}
 	}
 
 	loss := tf64.Sum(tf64.Quadratic(others.Get("E"), tf64.Mul(set.Get("A"), set.Get("A"))))
 
 	points := make(plotter.XYs, 0, 8)
-	for i := 0; i < 1024; i++ {
+	for i := range 1024 {
 		pow := func(x float64) float64 {
 			y := math.Pow(x, float64(i+1))
 			if math.IsNaN(y) || math.IsInf(y, 0) {
@@ -231,22 +232,21 @@ func NewMultiVariateGaussian(rng *rand.Rand, name string, size int, vectors [][]
 			scaling = 1 / norm
 		}
 		for _, w := range set.Weights {
-			for l, d := range w.D {
+			for ii, d := range w.D {
 				g := d * scaling
-				m := B1*w.States[StateM][l] + (1-B1)*g
-				v := B2*w.States[StateV][l] + (1-B2)*g*g
-				w.States[StateM][l] = m
-				w.States[StateV][l] = v
+				m := B1*w.States[StateM][ii] + (1-B1)*g
+				v := B2*w.States[StateV][ii] + (1-B2)*g*g
+				w.States[StateM][ii] = m
+				w.States[StateV][ii] = v
 				mhat := m / (1 - b1)
 				vhat := v / (1 - b2)
 				if vhat < 0 {
 					vhat = 0
 				}
-				w.X[l] -= Eta * mhat / (math.Sqrt(vhat) + 1e-8)
+				w.X[ii] -= Eta * mhat / (math.Sqrt(vhat) + 1e-8)
 			}
 		}
 		points = append(points, plotter.XY{X: float64(i), Y: float64(cost)})
-		//fmt.Println(i, cost)
 	}
 
 	p := plot.New()
@@ -269,27 +269,11 @@ func NewMultiVariateGaussian(rng *rand.Rand, name string, size int, vectors [][]
 	}
 
 	A = NewMatrix(size, size)
-	for _, v := range set.ByName["A"].X {
-		A.Data = append(A.Data, float64(v))
+	for _, variance := range set.ByName["A"].X {
+		A.Data = append(A.Data, variance)
 	}
 	u = NewMatrix(size, 1, avg...)
 	return A, u
-}
-
-var (
-	// FlagAll all in one
-	FlagAll = flag.Bool("all", false, "all in one")
-	// FlagGalaxy galaxy mode
-	FlagGalaxy = flag.Bool("galaxy", false, "galaxy mode")
-)
-
-// Dot is the dot product
-func Dot(a, b []float64) float64 {
-	c := 0.0
-	for i, v := range a {
-		c += v * b[i]
-	}
-	return c
 }
 
 // L2 is the L2 norm
@@ -303,87 +287,19 @@ func L2(a, b []float64) float64 {
 }
 
 func main() {
-	flag.Parse()
-
-	if *FlagGalaxy {
-		rng := rand.New(rand.NewSource(1))
-		A, u := NewMultiVariateGaussian(rng, "galaxies", 7, Galaxies)
-		fmt.Println(u)
-		fmt.Println()
-		for i, v := range A.Data {
-			if i%7 == 0 && i != 0 {
-				fmt.Println()
-			}
-			fmt.Printf("%f ", v)
-		}
-		fmt.Println()
-		return
-	}
-
-	if *FlagAll {
-		iris := Load()
-		vectors := make([][]float64, len(iris))
-		for i := range iris {
-			vectors[i] = append(vectors[i], iris[i].Measures...)
-			labels := make([]float64, 3)
-			labels[Labels[iris[i].Label]] = 1
-			vectors[i] = append(vectors[i], labels...)
-		}
-
-		rng := rand.New(rand.NewSource(1))
-		A, u := NewMultiVariateGaussian(rng, "all", 7, vectors)
-
-		type Result struct {
-			D float64
-			T [3]float64
-		}
-
-		correct := 0
-		for k := range iris {
-			results := make([]Result, 0, 3)
-			for i := 0; i < 33; i++ {
-				g := NewMatrix(7, 1)
-				for j := 0; j < 7; j++ {
-					g.Data = append(g.Data, rng.NormFloat64())
-				}
-				s := A.MulT(g).Add(u)
-				result := Result{}
-				for j, v := range s.Data[:4] {
-					diff := v - iris[k].Measures[j]
-					result.D += diff * diff
-				}
-				copy(result.T[:], s.Data[4:7])
-				results = append(results, result)
-			}
-			sort.Slice(results, func(i, j int) bool {
-				return results[i].D < results[j].D
-			})
-			index, max := 0, 0.0
-			for i, v := range results[0].T {
-				if v > max {
-					index, max = i, v
-				}
-			}
-			if Labels[iris[k].Label] == index {
-				correct++
-			}
-		}
-		fmt.Println(correct, float64(correct)/float64(len(iris)))
-		return
-	}
-
 	iris := Load()
 	var vectors [3][][]float64
-	for j := range vectors {
-		vectors[j] = make([][]float64, len(iris))
-		for i := range iris {
-			if j == Labels[iris[i].Label] {
-				vectors[j][i] = append(vectors[j][i], iris[i].Measures...)
+	for i := range vectors {
+		vectors[i] = make([][]float64, len(iris))
+		for ii, flower := range iris {
+			label := Labels[flower.Label]
+			if i == label {
+				vectors[i][ii] = append(vectors[i][ii], flower.Measures...)
 				labels := make([]float64, 1)
-				if Labels[iris[i].Label] == j {
+				if i == label {
 					labels[0] = 1
 				}
-				vectors[j][i] = append(vectors[j][i], labels...)
+				vectors[i][ii] = append(vectors[i][ii], labels...)
 			}
 		}
 	}
@@ -401,13 +317,13 @@ func main() {
 
 	correct := 0
 	var histogram [150][3]int
-	for s := 0; s < 1024; s++ {
-		for k := range iris {
+	for range 1024 {
+		for i, flower := range iris {
 			results := make([]Result, 0, 3)
 			vector := [][]float64{make([]float64, 0, 5), make([]float64, 0, 5)}
-			vector[0] = append(vector[0], iris[k].Measures...)
+			vector[0] = append(vector[0], flower.Measures...)
 			vector[0] = append(vector[0], 0)
-			vector[1] = append(vector[1], iris[k].Measures...)
+			vector[1] = append(vector[1], flower.Measures...)
 			vector[1] = append(vector[1], 1)
 			stddev := make([]float64, 5)
 			for i := range stddev {
@@ -417,97 +333,46 @@ func main() {
 			for i := range mean {
 				mean[i] = rng.NormFloat64()
 			}
-			for l := range A {
-				/*graph := pagerank.NewGraph()
-				vectors := make([][]float64, 0, 1024)
-				vectors = append(vectors, vector[0])
-				vectors = append(vectors, vector[1])*/
-				for i := 0; i < 4*33; i++ {
+			for ii := range A {
+				for range 8 * 33 {
 					g := NewMatrix(5, 1)
-					for j := 0; j < 5; j++ {
-						g.Data = append(g.Data, rng.NormFloat64()*stddev[j]+mean[j])
+					for iii := range 5 {
+						g.Data = append(g.Data, rng.NormFloat64()*stddev[iii]+mean[iii])
 					}
-					s := A[l].MulT(g).Add(u[l])
-					/*if i < 33 {
-						vectors = append(vectors, s.Data)
-					}*/
-					for j := range vector {
+					s := A[ii].MulT(g).Add(u[ii])
+					for v := range vector {
 						result := Result{
-							Feature: l,
-							Value:   j,
+							Feature: ii,
+							Value:   v,
 						}
-						//result.Fitness = math.Sqrt(Dot(s.Data, vector)) / (math.Sqrt(Dot(s.Data, s.Data)) * math.Sqrt(Dot(vector, vector)))
-						result.Fitness = L2(s.Data, vector[j])
+						result.Fitness = L2(s.Data, vector[v])
 						results = append(results, result)
 					}
 				}
-				/*for i, v := range vectors {
-					for j, vv := range vectors {
-						vvv := math.Sqrt(L2(v, vv))
-						if vvv > 0 {
-							vvv = 1 / vvv
-						}
-						graph.Link(uint32(i), uint32(j), vvv)
-					}
-				}
-				max, n := 0.0, uint32(0)
-				graph.Rank(1.0, 1e-3, func(node uint32, rank float64) {
-					if rank > max {
-						max, n = rank, node
-					}
-				})
-				fmt.Println(max, vectors[n][4])*/
 			}
-			/*avg, counts := [3]float64{}, [3]float64{}
-			for i := range results {
-				if results[i].Value == 1 {
-					avg[results[i].Feature] += results[i].Fitness
-					counts[results[i].Feature]++
-				}
-			}
-			for i := range avg {
-				avg[i] /= counts[i]
-			}
-			variance := [3]float64{}
-			for i := range results {
-				if results[i].Value == 1 {
-					diff := results[i].Fitness - avg[results[i].Feature]
-					variance[results[i].Feature] += diff * diff
-				}
-			}
-			for i := range variance {
-				variance[i] /= counts[i]
-			}
-			max, idx := 0.0, 0
-			for i := range variance {
-				if variance[i] > max {
-					max, idx = variance[i], i
-				}
-			}
-			fmt.Println(idx, iris[k].Label)*/
 			sort.Slice(results, func(i, j int) bool {
 				return results[i].Fitness < results[j].Fitness
 			})
 			index := 0
-			for i := range results {
-				if results[i].Value == 1 {
-					index = results[i].Feature
+			for ii := range results {
+				if results[ii].Value == 1 {
+					index = results[ii].Feature
 					break
 				}
 			}
-			histogram[k][index]++
+			histogram[i][index]++
 		}
 	}
 	for i := range histogram {
 		max, index := 0, 0
-		for j, v := range histogram[i] {
-			if v > max {
-				max, index = v, j
+		for ii, count := range histogram[i] {
+			if count > max {
+				max, index = count, ii
 			}
 		}
 		if Labels[iris[i].Label] == index {
 			correct++
 		}
 	}
-	fmt.Println(correct, float64(correct)/float64(len(iris)))
+	fmt.Println(correct, "/", len(iris), "=", float64(correct)/float64(len(iris)))
 }
