@@ -417,26 +417,31 @@ func main() {
 		var histogram [150][3]int
 		for range 1024 {
 			for i := range iris {
+				zero := NewMatrix(5, 1)
+				zero.Data = append(zero.Data, iris[i].Measures...)
+				zero.Data = append(zero.Data, 0)
 				one := NewMatrix(5, 1)
 				one.Data = append(one.Data, iris[i].Measures...)
 				one.Data = append(one.Data, 1)
-				mean := NewMatrix(5, 1)
+				/*mean := NewMatrix(5, 1)
 				for range 5 {
 					mean.Data = append(mean.Data, rng.NormFloat64())
 				}
 				stddev := NewMatrix(5, 1)
 				for range 5 {
 					stddev.Data = append(stddev.Data, rng.NormFloat64())
-				}
-				min, index := math.MaxFloat64, 0
+				}*/
+				index := 0
 				for ii := range AI {
-					reverse := AI[ii].MulT(one.Sub(u[ii]))
-					for iii := range A {
-						forward := A[iii].T().MulT(reverse).Add(u[iii])
-						fitness := L2(one.Data, forward.Data)
-						if fitness < min {
-							min, index = fitness, iii
-						}
+					reverseZero := AI[ii].MulT(zero.Sub(u[ii]))
+					forwardZero := A[ii].T().MulT(reverseZero).Add(u[ii])
+					reverseOne := AI[ii].MulT(one.Sub(u[ii]))
+					forwardOne := A[ii].T().MulT(reverseOne).Add(u[ii])
+					fitnessZero := L2(zero.Data, forwardZero.Data)
+					fitnessOne := L2(one.Data, forwardOne.Data)
+					if fitnessOne < fitnessZero {
+						index = ii
+						break
 					}
 				}
 				histogram[i][index]++
