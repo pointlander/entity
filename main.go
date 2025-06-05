@@ -415,6 +415,21 @@ func main() {
 	{
 		correct := 0
 		histogram := [150][3]int{}
+
+		{
+			vector := NewMatrix(5, 1)
+			vector.Data = append(vector.Data, iris[0].Measures...)
+			vector.Data = append(vector.Data, 1)
+			fmt.Println(vector)
+			for i := range AI {
+				reverse := AI[i].MulT(vector.Sub(u[i]))
+				for ii := range A {
+					forward := A[ii].MulT(reverse).Add(u[ii])
+					fmt.Println(ii, forward)
+				}
+			}
+		}
+
 		for range 1024 {
 			for i := range iris {
 				vectors := make([]Matrix, 2)
