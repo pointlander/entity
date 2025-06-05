@@ -448,8 +448,9 @@ func main() {
 					}
 				}
 				for ii := range summary[0] {
-					if summary[0][ii][4] > max {
-						max, index = summary[0][ii][4], ii
+					fitness := L2(summary[0][ii][:], vectors[0].Data)
+					if fitness > max {
+						max, index = fitness, ii
 					}
 				}
 				histogram[i][index]++
