@@ -414,30 +414,12 @@ func main() {
 
 	{
 		correct := 0
-		histogram := [150][3]int{}
-		{
-			vector := NewMatrix(5, 1)
-			vector.Data = append(vector.Data, iris[0].Measures...)
-			vector.Data = append(vector.Data, 1)
-			fmt.Println(vector)
-			for i := range AI {
-				reverse := AI[i].MulT(vector.Sub(u[i]))
-				fmt.Println(i, reverse)
-				forward := A[i].T().MulT(reverse).Add(u[i])
-				fmt.Println(i, forward)
-				fmt.Println()
-			}
-		}
-
+		var histogram [150][3]int
 		for range 1024 {
 			for i := range iris {
-				vectors := make([]Matrix, 2)
-				vectors[0] = NewMatrix(5, 1)
-				vectors[0].Data = append(vectors[0].Data, iris[i].Measures...)
-				vectors[0].Data = append(vectors[0].Data, 1)
-				vectors[1] = NewMatrix(5, 1)
-				vectors[1].Data = append(vectors[1].Data, iris[i].Measures...)
-				vectors[1].Data = append(vectors[1].Data, 0)
+				one := NewMatrix(5, 1)
+				one.Data = append(one.Data, iris[i].Measures...)
+				one.Data = append(one.Data, 1)
 				mean := NewMatrix(5, 1)
 				for range 5 {
 					mean.Data = append(mean.Data, rng.NormFloat64())
@@ -446,25 +428,15 @@ func main() {
 				for range 5 {
 					stddev.Data = append(stddev.Data, rng.NormFloat64())
 				}
-
-				max, index := 0.0, 0
-				summary := [2][3][5]float64{}
+				min, index := math.MaxFloat64, 0
 				for ii := range AI {
-					for iii := range vectors {
-						samples := AI[ii].MulT(vectors[iii].Sub(u[ii]))
-						for iv := range AI {
-							samples := samples //.Hadamard(mean).Add(mea)
-							samples = A[iv].MulT(samples).Add(u[iv])
-							for v := range samples.Data {
-								summary[iii][iv][v] += samples.Data[v]
-							}
+					reverse := AI[ii].MulT(one.Sub(u[ii]))
+					for iii := range A {
+						forward := A[iii].T().MulT(reverse).Add(u[iii])
+						fitness := L2(one.Data, forward.Data)
+						if fitness < min {
+							min, index = fitness, iii
 						}
-					}
-				}
-				for ii := range summary[0] {
-					fitness := L2(summary[0][ii][:], vectors[0].Data)
-					if fitness > max {
-						max, index = fitness, ii
 					}
 				}
 				histogram[i][index]++
