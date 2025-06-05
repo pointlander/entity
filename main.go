@@ -415,23 +415,29 @@ func main() {
 	{
 		correct := 0
 		for i := range iris {
-			vector := NewMatrix(5, 1)
-			vector.Data = append(vector.Data, iris[i].Measures...)
-			vector.Data = append(vector.Data, 1)
+			vectors := make([]Matrix, 2)
+			vectors[0] = NewMatrix(5, 1)
+			vectors[0].Data = append(vectors[0].Data, iris[i].Measures...)
+			vectors[0].Data = append(vectors[0].Data, 1)
+			vectors[1] = NewMatrix(5, 1)
+			vectors[1].Data = append(vectors[1].Data, iris[i].Measures...)
+			vectors[1].Data = append(vectors[1].Data, 0)
 			max, index := 0.0, 0
-			summary := [3][5]float64{}
-			for i := range AI {
-				samples := AI[i].MulT(vector.Sub(u[i]))
-				for ii := range AI {
-					samples := A[ii].MulT(samples).Add(u[ii])
-					for iii := range samples.Data {
-						summary[ii][iii] += samples.Data[iii]
+			summary := [2][3][5]float64{}
+			for ii := range AI {
+				for iii := range vectors {
+					samples := AI[ii].MulT(vectors[iii].Sub(u[ii]))
+					for iv := range AI {
+						samples := A[iv].MulT(samples).Add(u[ii])
+						for v := range samples.Data {
+							summary[iii][iv][v] += samples.Data[v]
+						}
 					}
 				}
 			}
-			for i := range summary {
-				if summary[i][4] > max {
-					max, index = summary[i][4], i
+			for ii := range summary[0] {
+				if summary[0][ii][4] > max {
+					max, index = summary[0][ii][4], ii
 				}
 			}
 			if index == Labels[iris[i].Label] {
