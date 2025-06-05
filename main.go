@@ -440,7 +440,7 @@ func main() {
 						samples := AI[ii].MulT(vectors[iii].Sub(u[ii]))
 						for iv := range AI {
 							samples := samples //.Hadamard(mean).Add(mea)
-							samples = A[iv].MulT(samples).Add(u[ii])
+							samples = A[iv].MulT(samples).Add(u[iv])
 							for v := range samples.Data {
 								summary[iii][iv][v] += samples.Data[v]
 							}
