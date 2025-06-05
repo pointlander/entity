@@ -412,6 +412,35 @@ func main() {
 		A[i], AI[i], u[i] = NewMultiVariateGaussian(rng, Inverse[i], 5, vectors[i])
 	}
 
+	{
+		correct := 0
+		for i := range iris {
+			vector := NewMatrix(5, 1)
+			vector.Data = append(vector.Data, iris[i].Measures...)
+			vector.Data = append(vector.Data, 1)
+			max, index := 0.0, 0
+			summary := [3][5]float64{}
+			for i := range AI {
+				samples := AI[i].MulT(vector.Sub(u[i]))
+				for ii := range AI {
+					samples := A[ii].MulT(samples).Add(u[ii])
+					for iii := range samples.Data {
+						summary[ii][iii] += samples.Data[iii]
+					}
+				}
+			}
+			for i := range summary {
+				if summary[i][4] > max {
+					max, index = summary[i][4], i
+				}
+			}
+			if index == Labels[iris[i].Label] {
+				correct++
+			}
+		}
+		fmt.Println(correct, "/", len(iris), "=", float64(correct)/float64(len(iris)))
+	}
+
 	type Result struct {
 		Feature int
 		Value   int
