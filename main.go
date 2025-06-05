@@ -414,30 +414,52 @@ func main() {
 
 	{
 		correct := 0
-		for i := range iris {
-			vectors := make([]Matrix, 2)
-			vectors[0] = NewMatrix(5, 1)
-			vectors[0].Data = append(vectors[0].Data, iris[i].Measures...)
-			vectors[0].Data = append(vectors[0].Data, 1)
-			vectors[1] = NewMatrix(5, 1)
-			vectors[1].Data = append(vectors[1].Data, iris[i].Measures...)
-			vectors[1].Data = append(vectors[1].Data, 0)
-			max, index := 0.0, 0
-			summary := [2][3][5]float64{}
-			for ii := range AI {
-				for iii := range vectors {
-					samples := AI[ii].MulT(vectors[iii].Sub(u[ii]))
-					for iv := range AI {
-						samples := A[iv].MulT(samples).Add(u[ii])
-						for v := range samples.Data {
-							summary[iii][iv][v] += samples.Data[v]
+		histogram := [150][3]int{}
+		for range 1024 {
+			for i := range iris {
+				vectors := make([]Matrix, 2)
+				vectors[0] = NewMatrix(5, 1)
+				vectors[0].Data = append(vectors[0].Data, iris[i].Measures...)
+				vectors[0].Data = append(vectors[0].Data, 1)
+				vectors[1] = NewMatrix(5, 1)
+				vectors[1].Data = append(vectors[1].Data, iris[i].Measures...)
+				vectors[1].Data = append(vectors[1].Data, 0)
+				mean := NewMatrix(5, 1)
+				for range 5 {
+					mean.Data = append(mean.Data, rng.NormFloat64())
+				}
+				stddev := NewMatrix(5, 1)
+				for range 5 {
+					stddev.Data = append(stddev.Data, rng.NormFloat64())
+				}
+
+				max, index := 0.0, 0
+				summary := [2][3][5]float64{}
+				for ii := range AI {
+					for iii := range vectors {
+						samples := AI[ii].MulT(vectors[iii].Sub(u[ii]))
+						for iv := range AI {
+							samples := samples //.Hadamard(mean).Add(mea)
+							samples = A[iv].MulT(samples).Add(u[ii])
+							for v := range samples.Data {
+								summary[iii][iv][v] += samples.Data[v]
+							}
 						}
 					}
 				}
+				for ii := range summary[0] {
+					if summary[0][ii][4] > max {
+						max, index = summary[0][ii][4], ii
+					}
+				}
+				histogram[i][index]++
 			}
-			for ii := range summary[0] {
-				if summary[0][ii][4] > max {
-					max, index = summary[0][ii][4], ii
+		}
+		for i := range histogram {
+			max, index := 0, 0
+			for ii := range histogram[i] {
+				if histogram[i][ii] > max {
+					max, index = histogram[i][ii], ii
 				}
 			}
 			if index == Labels[iris[i].Label] {

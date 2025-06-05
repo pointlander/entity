@@ -21,7 +21,7 @@ type Matrix struct {
 	Data []float64
 }
 
-// NewMatrix creates a new float32 matrix
+// NewMatrix creates a new float64 matrix
 func NewMatrix(cols, rows int, data ...float64) Matrix {
 	if data == nil {
 		data = make([]float64, 0, cols*rows)
@@ -55,7 +55,7 @@ func (m Matrix) MulT(n Matrix) Matrix {
 	return o
 }
 
-// Add adds two float32 matrices
+// Add adds two float64 matrices
 func (m Matrix) Add(n Matrix) Matrix {
 	lena, lenb := len(m.Data), len(n.Data)
 	if lena%lenb != 0 {
@@ -73,7 +73,7 @@ func (m Matrix) Add(n Matrix) Matrix {
 	return o
 }
 
-// Sub subtracts two float32 matrices
+// Sub subtracts two float64 matrices
 func (m Matrix) Sub(n Matrix) Matrix {
 	lena, lenb := len(m.Data), len(n.Data)
 	if lena%lenb != 0 {
@@ -87,6 +87,24 @@ func (m Matrix) Sub(n Matrix) Matrix {
 	}
 	for i, value := range m.Data {
 		o.Data = append(o.Data, value-n.Data[i%lenb])
+	}
+	return o
+}
+
+// Hadamard multiples two float64 matrices
+func (m Matrix) Hadamard(n Matrix) Matrix {
+	lena, lenb := len(m.Data), len(n.Data)
+	if lena%lenb != 0 {
+		panic(fmt.Errorf("%d %% %d != 0", lena, lenb))
+	}
+
+	o := Matrix{
+		Cols: m.Cols,
+		Rows: m.Rows,
+		Data: make([]float64, 0, m.Cols*m.Rows),
+	}
+	for i, value := range m.Data {
+		o.Data = append(o.Data, value*n.Data[i%lenb])
 	}
 	return o
 }
