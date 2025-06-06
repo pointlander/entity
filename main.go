@@ -431,18 +431,26 @@ func main() {
 				for range 5 {
 					stddev.Data = append(stddev.Data, rng.NormFloat64())
 				}*/
-				index := 0
+				min, index := math.MaxFloat64, 0
 				for ii := range AI {
-					reverseZero := AI[ii].MulT(zero.Sub(u[ii]))
-					forwardZero := A[ii].T().MulT(reverseZero).Add(u[ii])
 					reverseOne := AI[ii].MulT(one.Sub(u[ii]))
 					forwardOne := A[ii].T().MulT(reverseOne).Add(u[ii])
-					fitnessZero := L2(zero.Data, forwardZero.Data)
 					fitnessOne := L2(one.Data, forwardOne.Data)
-					if fitnessOne < fitnessZero {
-						index = ii
+					sum := fitnessOne
+					for iii := range AI {
+						if ii == iii {
+							continue
+						}
+						reverseZero := AI[ii].MulT(zero.Sub(u[ii]))
+						forwardZero := A[ii].T().MulT(reverseZero).Add(u[ii])
+						fitnessZero := L2(zero.Data, forwardZero.Data)
+						sum += fitnessZero
+					}
+					if sum < min {
+						min, index = sum, ii
 						break
 					}
+
 				}
 				histogram[i][index]++
 			}
