@@ -408,9 +408,20 @@ func main() {
 	}
 	rng := rand.New(rand.NewSource(1))
 	var A, AI, u [3]Matrix
+	cal := [][]float64{}
 	for i := range vectors {
 		A[i], AI[i], u[i] = NewMultiVariateGaussian(rng, Inverse[i], 5, vectors[i])
+		diff := A[i].MulT(AI[i])
+		c := make([]float64, 5)
+		for ii, value := range diff.Data {
+			if ii%5 == ii/5 {
+				value -= 1
+			}
+			c[ii%5] += value
+		}
+		cal = append(cal, c)
 	}
+	fmt.Println(cal)
 
 	{
 		correct := 0
@@ -435,16 +446,26 @@ func main() {
 				for ii := range AI {
 					reverseOne := AI[ii].MulT(one.Sub(u[ii]))
 					forwardOne := A[ii].T().MulT(reverseOne).Add(u[ii])
+					adj := 0.0
+					for iii := range forwardOne.Data {
+						forwardOne.Data[iii] += cal[ii][iii]
+						adj += cal[ii][iii]
+					}
 					fitnessOne := L2(one.Data, forwardOne.Data)
-					sum := fitnessOne
+					sum := fitnessOne + adj
 					for iii := range AI {
 						if ii == iii {
 							continue
 						}
 						reverseZero := AI[iii].MulT(zero.Sub(u[iii]))
 						forwardZero := A[iii].T().MulT(reverseZero).Add(u[iii])
+						adj := 0.0
+						for iv := range forwardZero.Data {
+							forwardZero.Data[iii] += cal[iii][iv]
+							adj += cal[iii][iv]
+						}
 						fitnessZero := L2(zero.Data, forwardZero.Data)
-						sum += fitnessZero
+						sum += fitnessZero + adj
 					}
 					if sum < min {
 						min, index = sum, ii
