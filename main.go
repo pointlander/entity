@@ -441,8 +441,8 @@ func main() {
 						if ii == iii {
 							continue
 						}
-						reverseZero := AI[ii].MulT(zero.Sub(u[ii]))
-						forwardZero := A[ii].T().MulT(reverseZero).Add(u[ii])
+						reverseZero := AI[iii].MulT(zero.Sub(u[iii]))
+						forwardZero := A[iii].T().MulT(reverseZero).Add(u[iii])
 						fitnessZero := L2(zero.Data, forwardZero.Data)
 						sum += fitnessZero
 					}
