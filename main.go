@@ -448,8 +448,8 @@ func main() {
 					forwardOne := A[ii].T().MulT(reverseOne).Add(u[ii])
 					adj := 0.0
 					for iii := range forwardOne.Data {
-						forwardOne.Data[iii] += cal[ii][iii]
-						adj += cal[ii][iii]
+						//forwardOne.Data[iii] -= cal[ii][iii]
+						adj -= cal[ii][iii]
 					}
 					fitnessOne := L2(one.Data, forwardOne.Data)
 					sum := fitnessOne + adj
@@ -461,8 +461,8 @@ func main() {
 						forwardZero := A[iii].T().MulT(reverseZero).Add(u[iii])
 						adj := 0.0
 						for iv := range forwardZero.Data {
-							forwardZero.Data[iii] += cal[iii][iv]
-							adj += cal[iii][iv]
+							//forwardZero.Data[iii] -= cal[iii][iv]
+							adj -= cal[iii][iv]
 						}
 						fitnessZero := L2(zero.Data, forwardZero.Data)
 						sum += fitnessZero + adj
