@@ -393,16 +393,13 @@ func main() {
 	iris := Load()
 	var vectors [3][][]float64
 	for i := range vectors {
-		vectors[i] = make([][]float64, len(iris))
-		for ii, flower := range iris {
+		vectors[i] = make([][]float64, 50)
+		index := 0
+		for _, flower := range iris {
 			label := Labels[flower.Label]
 			if i == label {
-				vectors[i][ii] = append(vectors[i][ii], flower.Measures...)
-				labels := make([]float64, 1)
-				if i == label {
-					labels[0] = 1
-				}
-				vectors[i][ii] = append(vectors[i][ii], labels...)
+				vectors[i][index] = append(vectors[i][index], flower.Measures...)
+				index++
 			}
 		}
 	}
@@ -410,7 +407,7 @@ func main() {
 	var A, AI, u [3]Matrix
 	cal := [][]float64{}
 	for i := range vectors {
-		A[i], AI[i], u[i] = NewMultiVariateGaussian(rng, Inverse[i], 5, vectors[i])
+		A[i], AI[i], u[i] = NewMultiVariateGaussian(rng, Inverse[i], 4, vectors[i])
 		diff := A[i].MulT(AI[i])
 		c := make([]float64, 5)
 		for ii, value := range diff.Data {
@@ -428,12 +425,10 @@ func main() {
 		var histogram [150][3]int
 		for range 1024 {
 			for i := range iris {
-				zero := NewMatrix(5, 1)
+				zero := NewMatrix(4, 1)
 				zero.Data = append(zero.Data, iris[i].Measures...)
-				zero.Data = append(zero.Data, 0)
-				one := NewMatrix(5, 1)
+				one := NewMatrix(4, 1)
 				one.Data = append(one.Data, iris[i].Measures...)
-				one.Data = append(one.Data, 1)
 				/*mean := NewMatrix(5, 1)
 				for range 5 {
 					mean.Data = append(mean.Data, rng.NormFloat64())
@@ -504,21 +499,19 @@ func main() {
 			results := make([]Result, 0, 3)
 			vector := [][]float64{make([]float64, 0, 5), make([]float64, 0, 5)}
 			vector[0] = append(vector[0], flower.Measures...)
-			vector[0] = append(vector[0], 0)
 			vector[1] = append(vector[1], flower.Measures...)
-			vector[1] = append(vector[1], 1)
 			for range 4 * 33 {
-				stddev := make([]float64, 5)
+				stddev := make([]float64, 4)
 				for ii := range stddev {
 					stddev[ii] = rng.NormFloat64()
 				}
-				mean := make([]float64, 5)
+				mean := make([]float64, 4)
 				for ii := range mean {
 					mean[ii] = rng.NormFloat64()
 				}
 				for ii := range A {
-					g := NewMatrix(5, 1)
-					for iii := range 5 {
+					g := NewMatrix(4, 1)
+					for iii := range 4 {
 						g.Data = append(g.Data, rng.NormFloat64()*stddev[iii]+mean[iii])
 					}
 					s := A[ii].MulT(g).Add(u[ii])
