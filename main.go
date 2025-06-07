@@ -487,7 +487,6 @@ func main() {
 
 	type Result struct {
 		Feature int
-		Value   int
 		Fitness float64
 	}
 
@@ -497,44 +496,25 @@ func main() {
 		var histogram [150][3]uint64
 		for i, flower := range iris {
 			results := make([]Result, 0, 3)
-			vector := [][]float64{make([]float64, 0, 5), make([]float64, 0, 5)}
-			vector[0] = append(vector[0], flower.Measures...)
-			vector[1] = append(vector[1], flower.Measures...)
-			for range 4 * 33 {
-				stddev := make([]float64, 4)
-				for ii := range stddev {
-					stddev[ii] = rng.NormFloat64()
-				}
-				mean := make([]float64, 4)
-				for ii := range mean {
-					mean[ii] = rng.NormFloat64()
-				}
+			vector := flower.Measures
+			for range 2 * 33 {
 				for ii := range A {
 					g := NewMatrix(4, 1)
 					for iii := range 4 {
-						g.Data = append(g.Data, rng.NormFloat64()*stddev[iii]+mean[iii])
+						_ = iii
+						g.Data = append(g.Data, rng.NormFloat64())
 					}
 					s := A[ii].MulT(g).Add(u[ii])
-					for v := range vector {
-						result := Result{
-							Feature: ii,
-							Value:   v,
-						}
-						result.Fitness = L2(s.Data, vector[v])
-						results = append(results, result)
+					result := Result{
+						Feature: ii,
 					}
-
+					result.Fitness = L2(s.Data, vector)
+					results = append(results, result)
 				}
 				sort.Slice(results, func(i, j int) bool {
 					return results[i].Fitness < results[j].Fitness
 				})
-				index := 0
-				for ii := range results {
-					if results[ii].Value == 1 {
-						index = results[ii].Feature
-						break
-					}
-				}
+				index := results[0].Feature
 				histogram[i][index]++
 			}
 		}
