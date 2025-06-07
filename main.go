@@ -423,13 +423,16 @@ func main() {
 	{
 		correct := 0
 		var histogram [150][3]int
-		for range 1024 {
+		for range 256 {
 			for i := range iris {
 				vector := NewMatrix(4, 1)
 				vector.Data = append(vector.Data, iris[i].Measures...)
 				min, index := math.MaxFloat64, 0
 				for ii := range AI {
 					reverse := AI[ii].MulT(vector.Sub(u[ii]))
+					for iii := range reverse.Data {
+						reverse.Data[iii] *= rng.NormFloat64()
+					}
 					forward := A[ii].T().MulT(reverse).Add(u[ii])
 					fitness := L2(vector.Data, forward.Data)
 					if fitness < min {
