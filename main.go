@@ -497,7 +497,7 @@ func main() {
 		for i, flower := range iris {
 			results := make([]Result, 0, 3)
 			vector := flower.Measures
-			for range 2 * 33 {
+			for range 4 * 33 {
 				for ii := range A {
 					g := NewMatrix(4, 1)
 					for iii := range 4 {
