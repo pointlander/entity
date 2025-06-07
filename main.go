@@ -425,46 +425,15 @@ func main() {
 		var histogram [150][3]int
 		for range 1024 {
 			for i := range iris {
-				zero := NewMatrix(4, 1)
-				zero.Data = append(zero.Data, iris[i].Measures...)
-				one := NewMatrix(4, 1)
-				one.Data = append(one.Data, iris[i].Measures...)
-				/*mean := NewMatrix(5, 1)
-				for range 5 {
-					mean.Data = append(mean.Data, rng.NormFloat64())
-				}
-				stddev := NewMatrix(5, 1)
-				for range 5 {
-					stddev.Data = append(stddev.Data, rng.NormFloat64())
-				}*/
+				vector := NewMatrix(4, 1)
+				vector.Data = append(vector.Data, iris[i].Measures...)
 				min, index := math.MaxFloat64, 0
 				for ii := range AI {
-					reverseOne := AI[ii].MulT(one.Sub(u[ii]))
-					forwardOne := A[ii].T().MulT(reverseOne).Add(u[ii])
-					adj := 0.0
-					for iii := range forwardOne.Data {
-						//forwardOne.Data[iii] -= cal[ii][iii]
-						adj -= cal[ii][iii]
-					}
-					fitnessOne := L2(one.Data, forwardOne.Data)
-					sum := fitnessOne + adj
-					for iii := range AI {
-						if ii == iii {
-							continue
-						}
-						reverseZero := AI[iii].MulT(zero.Sub(u[iii]))
-						forwardZero := A[iii].T().MulT(reverseZero).Add(u[iii])
-						adj := 0.0
-						for iv := range forwardZero.Data {
-							//forwardZero.Data[iii] -= cal[iii][iv]
-							adj -= cal[iii][iv]
-						}
-						fitnessZero := L2(zero.Data, forwardZero.Data)
-						sum += fitnessZero + adj
-					}
-					if sum < min {
-						min, index = sum, ii
-						break
+					reverse := AI[ii].MulT(vector.Sub(u[ii]))
+					forward := A[ii].T().MulT(reverse).Add(u[ii])
+					fitness := L2(vector.Data, forward.Data)
+					if fitness < min {
+						min, index = fitness, ii
 					}
 
 				}
