@@ -7,5 +7,5 @@ vector and standard deviation matrix form the model.
 ## Implementation of the iris data set
 The iris data set has 4 feature per flower with three types of flowers. The data set is divided up in terms of 
 flower type creating 3 sets with 50 samples each. The 3 sets of samples are used to create 3 multivariate 
-gaussians. To classify a query vector of 4 measurements each multivariate gaussian is sampled from. The L2 norm is 
+gaussians. To classify a query vector of 4 features the multivariate gaussian is sampled from. The L2 norm is 
 used to calculate which multivariate guassian produces samples closest to the query vector.
