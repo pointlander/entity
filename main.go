@@ -14,7 +14,6 @@ import (
 	"math"
 	"math/rand"
 	"runtime"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -418,7 +417,9 @@ func main() {
 		}
 		cal = append(cal, c)
 	}
+	fmt.Println("cal=")
 	fmt.Println(cal)
+	fmt.Println()
 
 	{
 		correct := 0
@@ -467,9 +468,9 @@ func main() {
 		rng := rand.New(rand.NewSource(seed))
 		var histogram [150][3]uint64
 		for i, flower := range iris {
-			results := make([]Result, 0, 3)
 			vector := flower.Measures
-			for range 4 * 33 {
+			min, index := math.MaxFloat64, 0
+			for range 16 * 33 {
 				for ii := range A {
 					g := NewMatrix(4, 1)
 					for iii := range 4 {
@@ -477,18 +478,13 @@ func main() {
 						g.Data = append(g.Data, rng.NormFloat64())
 					}
 					s := A[ii].MulT(g).Add(u[ii])
-					result := Result{
-						Feature: ii,
+					fitness := L2(s.Data, vector)
+					if fitness < min {
+						min, index = fitness, ii
 					}
-					result.Fitness = L2(s.Data, vector)
-					results = append(results, result)
 				}
-				sort.Slice(results, func(i, j int) bool {
-					return results[i].Fitness < results[j].Fitness
-				})
-				index := results[0].Feature
-				histogram[i][index]++
 			}
+			histogram[i][index]++
 		}
 		done <- histogram
 	}
