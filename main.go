@@ -16,6 +16,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pointlander/gradient/tf64"
 
@@ -422,9 +423,11 @@ func main() {
 	fmt.Println()
 
 	{
-		correct := 0
-		var histogram [150][3]int
-		for range 256 {
+		start := time.Now()
+		done := make(chan [150][3]uint64)
+		process := func(seed int64) {
+			rng := rand.New(rand.NewSource(seed))
+			var histogram [150][3]uint64
 			for i := range iris {
 				vector := NewMatrix(4, 1)
 				vector.Data = append(vector.Data, iris[i].Measures...)
@@ -439,30 +442,60 @@ func main() {
 					if fitness < min {
 						min, index = fitness, ii
 					}
-
 				}
 				histogram[i][index]++
 			}
+			done <- histogram
 		}
-		for i := range histogram {
-			max, index := 0, 0
-			for ii := range histogram[i] {
-				if histogram[i][ii] > max {
-					max, index = histogram[i][ii], ii
+
+		var histogram [150][3]uint64
+		cpus := runtime.NumCPU()
+		flight, i := 0, 0
+		const iterations = 16
+		for i < iterations && flight < cpus {
+			go process(rng.Int63())
+			i++
+			flight++
+		}
+		for i < iterations {
+			h := <-done
+			for ii := range h {
+				for iii, counts := range h[ii] {
+					histogram[ii][iii] += counts
 				}
 			}
-			if index == Labels[iris[i].Label] {
+			flight--
+
+			go process(rng.Int63())
+			i++
+			flight++
+		}
+		for range flight {
+			h := <-done
+			for ii := range h {
+				for iii, counts := range h[ii] {
+					histogram[ii][iii] += counts
+				}
+			}
+		}
+
+		correct := 0
+		for i := range histogram {
+			max, index := uint64(0), 0
+			for ii, count := range histogram[i] {
+				if count > max {
+					max, index = count, ii
+				}
+			}
+			if Labels[iris[i].Label] == index {
 				correct++
 			}
 		}
-		fmt.Println(correct, "/", len(iris), "=", float64(correct)/float64(len(iris)))
+		elapsed := time.Since(start)
+		fmt.Println(elapsed, correct, "/", len(iris), "=", float64(correct)/float64(len(iris)))
 	}
 
-	type Result struct {
-		Feature int
-		Fitness float64
-	}
-
+	start := time.Now()
 	done := make(chan [150][3]uint64, 8)
 	process := func(seed int64) {
 		rng := rand.New(rand.NewSource(seed))
@@ -532,5 +565,6 @@ func main() {
 			correct++
 		}
 	}
-	fmt.Println(correct, "/", len(iris), "=", float64(correct)/float64(len(iris)))
+	elapsed := time.Since(start)
+	fmt.Println(elapsed, correct, "/", len(iris), "=", float64(correct)/float64(len(iris)))
 }
