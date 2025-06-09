@@ -430,11 +430,11 @@ func main() {
 				vector.Data = append(vector.Data, iris[i].Measures...)
 				min, index := math.MaxFloat64, 0
 				for ii := range AI {
-					reverse := AI[ii].MulT(vector.Sub(u[ii]))
+					reverse := AI[ii].T().MulT(vector.Sub(u[ii]))
 					for iii := range reverse.Data {
 						reverse.Data[iii] *= rng.NormFloat64()
 					}
-					forward := A[ii].T().MulT(reverse).Add(u[ii])
+					forward := A[ii].MulT(reverse).Add(u[ii])
 					fitness := L2(vector.Data, forward.Data)
 					if fitness < min {
 						min, index = fitness, ii
