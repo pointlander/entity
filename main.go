@@ -492,12 +492,13 @@ func main() {
 	var histogram [150][3]uint64
 	cpus := runtime.NumCPU()
 	flight, i := 0, 0
-	for i < 1024 && flight < cpus {
+	const iterations = 16
+	for i < iterations && flight < cpus {
 		go process(rng.Int63())
 		i++
 		flight++
 	}
-	for i < 1024 {
+	for i < iterations {
 		h := <-done
 		for ii := range h {
 			for iii, counts := range h[ii] {
