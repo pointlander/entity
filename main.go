@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"embed"
 	"encoding/csv"
+	"flag"
 	"fmt"
 	"io"
 	"math"
@@ -389,7 +390,8 @@ func L2(a, b []float64) float64 {
 	return c
 }
 
-func main() {
+// IrisModel the iris model
+func IrisModel() {
 	iris := Load()
 	var vectors [3][][]float64
 	for i := range vectors {
@@ -567,4 +569,18 @@ func main() {
 	}
 	elapsed := time.Since(start)
 	fmt.Println(elapsed, correct, "/", len(iris), "=", float64(correct)/float64(len(iris)))
+}
+
+var (
+	// FlagIris the iris model
+	FlagIris = flag.Bool("iris", false, "the iris model")
+)
+
+func main() {
+	flag.Parse()
+
+	if *FlagIris {
+		IrisModel()
+		return
+	}
 }
