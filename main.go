@@ -7,6 +7,7 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"compress/bzip2"
 	"embed"
 	"encoding/csv"
 	"flag"
@@ -576,11 +577,48 @@ var (
 	FlagIris = flag.Bool("iris", false, "the iris model")
 )
 
+//go:embed books/*
+var Data embed.FS
+
 func main() {
 	flag.Parse()
 
 	if *FlagIris {
 		IrisModel()
 		return
+	}
+
+	file, err := Data.Open("books/100.txt.utf-8.bz2")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+	reader := bzip2.NewReader(file)
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		panic(err)
+	}
+
+	forward, reverse, code := make(map[rune]byte), make(map[byte]rune), byte(0)
+	for _, v := range string(data) {
+		if _, ok := forward[v]; !ok {
+			forward[v] = code
+			reverse[code] = v
+			code++
+			if code > 255 {
+				panic("not enough codes")
+			}
+		}
+	}
+	length, datum := len(forward), []rune(string(data))
+	vectors, index := make([][][]float64, length), 8
+	for _, v := range datum[8:] {
+		code := forward[v]
+		vector := make([]float64, length)
+		for i := 1; i < 9; i++ {
+			vector[forward[datum[index-i]]]++
+		}
+		vectors[code] = append(vectors[code], vector)
+		index++
 	}
 }
