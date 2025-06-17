@@ -15,6 +15,7 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -579,6 +580,8 @@ func IrisModel() {
 var (
 	// FlagIris the iris model
 	FlagIris = flag.Bool("iris", false, "the iris model")
+	// FlagBuild build the model
+	FlagBuild = flag.Bool("build", false, "build the model")
 )
 
 //go:embed books/*
@@ -615,20 +618,146 @@ func main() {
 		}
 	}
 	length, datum := len(forward), []rune(string(data))
-	rng := rand.New(rand.NewSource(1))
+
 	A, AI, u := make([]Matrix, length), make([]Matrix, length), make([]Matrix, length)
-	for i := range length {
-		vectors, index := make([][]float64, 0, 8), 8
-		for _, v := range datum[8:] {
-			if int(forward[v]) == i {
-				vector := make([]float64, length)
-				for i := 1; i < 9; i++ {
-					vector[forward[datum[index-i]]]++
-				}
-				vectors = append(vectors, vector)
-			}
-			index++
+	if *FlagBuild {
+		out, err := os.Create("model.bin")
+		if err != nil {
+			panic(err)
 		}
-		A[i], AI[i], u[i] = NewMultiVariateGaussian(1.0e-1, rng, fmt.Sprintf("%d_text", i), length, vectors)
+		defer out.Close()
+
+		rng := rand.New(rand.NewSource(1))
+		for i := range length {
+			vectors, index := make([][]float64, 0, 8), 8
+			for _, v := range datum[8:] {
+				if int(forward[v]) == i {
+					vector := make([]float64, length)
+					for i := 1; i < 9; i++ {
+						vector[forward[datum[index-i]]]++
+					}
+					vectors = append(vectors, vector)
+				}
+				index++
+			}
+			A[i], AI[i], u[i] = NewMultiVariateGaussian(1.0e-1, rng, fmt.Sprintf("%d_text", i), length, vectors)
+
+			buffer64 := make([]byte, 8)
+			for _, parameter := range u[i].Data {
+				bits := math.Float64bits(parameter)
+				for i := range buffer64 {
+					buffer64[i] = byte((bits >> (8 * i)) & 0xFF)
+				}
+				n, err := out.Write(buffer64)
+				if err != nil {
+					panic(err)
+				}
+				if n != len(buffer64) {
+					panic("8 bytes should be been written")
+				}
+			}
+			for _, parameter := range A[i].Data {
+				bits := math.Float64bits(parameter)
+				for i := range buffer64 {
+					buffer64[i] = byte((bits >> (8 * i)) & 0xFF)
+				}
+				n, err := out.Write(buffer64)
+				if err != nil {
+					panic(err)
+				}
+				if n != len(buffer64) {
+					panic("8 bytes should be been written")
+				}
+			}
+			for _, parameter := range AI[i].Data {
+				bits := math.Float64bits(parameter)
+				for i := range buffer64 {
+					buffer64[i] = byte((bits >> (8 * i)) & 0xFF)
+				}
+				n, err := out.Write(buffer64)
+				if err != nil {
+					panic(err)
+				}
+				if n != len(buffer64) {
+					panic("8 bytes should be been written")
+				}
+			}
+		}
+		return
+	}
+
+	input, err := os.Open("model.bin")
+	if err != nil {
+		panic(err)
+	}
+	defer input.Close()
+
+	for i := range length {
+		u[i] = NewMatrix(length, 1)
+		buffer64 := make([]byte, 8)
+		for range u[i].Rows {
+			for range u[i].Cols {
+				n, err := input.Read(buffer64)
+				if err == io.EOF {
+					panic(err)
+				} else if err != nil {
+					panic(err)
+				}
+				if n != len(buffer64) {
+					panic(fmt.Errorf("not all bytes read: %d", n))
+				}
+				value := uint64(0)
+				for k := 0; k < 8; k++ {
+					value <<= 8
+					value |= uint64(buffer64[7-k])
+				}
+				u[i].Data = append(u[i].Data, math.Float64frombits(value))
+			}
+		}
+		A[i] = NewMatrix(length, length)
+		for range A[i].Rows {
+			for range A[i].Cols {
+				n, err := input.Read(buffer64)
+				if err == io.EOF {
+					panic(err)
+				} else if err != nil {
+					panic(err)
+				}
+				if n != len(buffer64) {
+					panic(fmt.Errorf("not all bytes read: %d", n))
+				}
+				value := uint64(0)
+				for k := 0; k < 8; k++ {
+					value <<= 8
+					value |= uint64(buffer64[7-k])
+				}
+				A[i].Data = append(A[i].Data, math.Float64frombits(value))
+			}
+		}
+		AI[i] = NewMatrix(length, length)
+		for range AI[i].Rows {
+			for range AI[i].Cols {
+				n, err := input.Read(buffer64)
+				if err == io.EOF {
+					panic(err)
+				} else if err != nil {
+					panic(err)
+				}
+				if n != len(buffer64) {
+					panic(fmt.Errorf("not all bytes read: %d", n))
+				}
+				value := uint64(0)
+				for k := 0; k < 8; k++ {
+					value <<= 8
+					value |= uint64(buffer64[7-k])
+				}
+				AI[i].Data = append(AI[i].Data, math.Float64frombits(value))
+			}
+		}
+	}
+	buffer64 := make([]byte, 8)
+	_, err = input.Read(buffer64)
+	if err != io.EOF {
+		panic("not at the end")
 	}
 }
