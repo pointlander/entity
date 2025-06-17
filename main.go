@@ -778,42 +778,50 @@ func main() {
 	}
 
 	rng := rand.New(rand.NewSource(1))
-	prompt := []rune("What is the meaning of life?")
-	const iterations = 128
+	grandPrompt, grandMax := []rune{}, 0
 	for range 33 {
-		vector := NewMatrix(length, 1, make([]float64, length)...)
-		for i := 1; i < 9; i++ {
-			vector.Data[forward[prompt[len(prompt)-i]]]++
-		}
-		histogram := make([]int, length)
-		for range iterations {
-			min, index := math.MaxFloat64, 0
-			for i := range length {
-				if i == 0 {
-					continue
+		prompt, grand := []rune("What is the meaning of life?"), 0
+		const iterations = 128
+		for range 8 {
+			vector := NewMatrix(length, 1, make([]float64, length)...)
+			for i := 1; i < 9; i++ {
+				vector.Data[forward[prompt[len(prompt)-i]]]++
+			}
+			histogram := make([]int, length)
+			for range iterations {
+				min, index := math.MaxFloat64, 0
+				for i := range length {
+					if i == 0 {
+						continue
+					}
+					reverse := AI[i].T().MulT(vector.Sub(u[i]))
+					for iii := range reverse.Data {
+						reverse.Data[iii] *= rng.NormFloat64()
+					}
+					forward := A[i].MulT(reverse).Add(u[i])
+					fitness := L2(vector.Data, forward.Data)
+					if fitness < min {
+						min, index = fitness, i
+					}
 				}
-				reverse := AI[i].T().MulT(vector.Sub(u[i]))
-				for iii := range reverse.Data {
-					reverse.Data[iii] *= rng.NormFloat64()
-				}
-				forward := A[i].MulT(reverse).Add(u[i])
-				fitness := L2(vector.Data, forward.Data)
-				if fitness < min {
-					min, index = fitness, i
+				histogram[index]++
+			}
+			sum, index, sample := 0, 0, rng.Intn(iterations)
+			for i, count := range histogram {
+				sum += count
+				if sample < sum {
+					grand += count
+					index = i
+					break
 				}
 			}
-			histogram[index]++
+			fmt.Printf("%c %d\n", reverse[byte(index)], reverse[byte(index)])
+			prompt = append(prompt, reverse[byte(index)])
 		}
-		sum, index, sample := 0, 0, rng.Intn(iterations)
-		for i, count := range histogram {
-			sum += count
-			if sample < sum {
-				index = i
-				break
-			}
+		fmt.Println(grand, string(prompt))
+		if grand > grandMax {
+			grandMax, grandPrompt = grand, prompt
 		}
-		fmt.Printf("%c %d\n", reverse[byte(index)], reverse[byte(index)])
-		prompt = append(prompt, reverse[byte(index)])
 	}
-	fmt.Println(string(prompt))
+	fmt.Println(grandMax, string(grandPrompt))
 }
