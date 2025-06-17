@@ -779,13 +779,14 @@ func main() {
 
 	rng := rand.New(rand.NewSource(1))
 	prompt := []rune("What is the meaning of life?")
+	const iterations = 128
 	for range 33 {
 		vector := NewMatrix(length, 1, make([]float64, length)...)
 		for i := 1; i < 9; i++ {
 			vector.Data[forward[prompt[len(prompt)-i]]]++
 		}
 		histogram := make([]int, length)
-		for range 256 {
+		for range iterations {
 			min, index := math.MaxFloat64, 0
 			for i := range length {
 				if i == 0 {
@@ -803,7 +804,7 @@ func main() {
 			}
 			histogram[index]++
 		}
-		sum, index, sample := 0, 0, rng.Intn(33)
+		sum, index, sample := 0, 0, rng.Intn(iterations)
 		for i, count := range histogram {
 			sum += count
 			if sample < sum {
