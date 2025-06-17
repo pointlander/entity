@@ -140,7 +140,7 @@ func Load() []Fisher {
 }
 
 // NewMultiVariateGaussian
-func NewMultiVariateGaussian(rng *rand.Rand, name string, size int, vectors [][]float64) (A, AI Matrix, u Matrix) {
+func NewMultiVariateGaussian(eta float64, rng *rand.Rand, name string, size int, vectors [][]float64) (A, AI Matrix, u Matrix) {
 	fmt.Println(name)
 	avg := make([]float64, size)
 	for _, measures := range vectors {
@@ -148,8 +148,10 @@ func NewMultiVariateGaussian(rng *rand.Rand, name string, size int, vectors [][]
 			avg[i] += v
 		}
 	}
-	for i := range avg {
-		avg[i] /= float64(len(vectors))
+	if len(vectors) > 0 {
+		for i := range avg {
+			avg[i] /= float64(len(vectors))
+		}
 	}
 	cov := make([][]float64, size)
 	for i := range cov {
@@ -164,9 +166,11 @@ func NewMultiVariateGaussian(rng *rand.Rand, name string, size int, vectors [][]
 			}
 		}
 	}
-	for i := range cov {
-		for ii := range cov[i] {
-			cov[i][ii] = cov[i][ii] / float64(len(vectors))
+	if len(vectors) > 0 {
+		for i := range cov {
+			for ii := range cov[i] {
+				cov[i][ii] = cov[i][ii] / float64(len(vectors))
+			}
 		}
 	}
 	fmt.Println("K=")
@@ -343,7 +347,7 @@ func NewMultiVariateGaussian(rng *rand.Rand, name string, size int, vectors [][]
 					if vhat < 0 {
 						vhat = 0
 					}
-					w.X[ii] -= Eta * mhat / (math.Sqrt(vhat) + 1e-8)
+					w.X[ii] -= eta * mhat / (math.Sqrt(vhat) + 1e-8)
 				}
 			}
 			points = append(points, plotter.XY{X: float64(i), Y: float64(cost)})
@@ -410,7 +414,7 @@ func IrisModel() {
 	var A, AI, u [3]Matrix
 	cal := [][]float64{}
 	for i := range vectors {
-		A[i], AI[i], u[i] = NewMultiVariateGaussian(rng, Inverse[i], 4, vectors[i])
+		A[i], AI[i], u[i] = NewMultiVariateGaussian(Eta, rng, Inverse[i], 4, vectors[i])
 		diff := A[i].MulT(AI[i])
 		c := make([]float64, 5)
 		for ii, value := range diff.Data {
@@ -611,14 +615,20 @@ func main() {
 		}
 	}
 	length, datum := len(forward), []rune(string(data))
-	vectors, index := make([][][]float64, length), 8
-	for _, v := range datum[8:] {
-		code := forward[v]
-		vector := make([]float64, length)
-		for i := 1; i < 9; i++ {
-			vector[forward[datum[index-i]]]++
+	rng := rand.New(rand.NewSource(1))
+	A, AI, u := make([]Matrix, length), make([]Matrix, length), make([]Matrix, length)
+	for i := range length {
+		vectors, index := make([][]float64, 0, 8), 8
+		for _, v := range datum[8:] {
+			if int(forward[v]) == i {
+				vector := make([]float64, length)
+				for i := 1; i < 9; i++ {
+					vector[forward[datum[index-i]]]++
+				}
+				vectors = append(vectors, vector)
+			}
+			index++
 		}
-		vectors[code] = append(vectors[code], vector)
-		index++
+		A[i], AI[i], u[i] = NewMultiVariateGaussian(1.0e-1, rng, fmt.Sprintf("%d_text", i), length, vectors)
 	}
 }
