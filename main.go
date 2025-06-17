@@ -776,4 +776,43 @@ func main() {
 		}
 		fmt.Println(i, count, total, float64(count)/float64(total))
 	}
+
+	rng := rand.New(rand.NewSource(1))
+	prompt := []rune("What is the meaning of life?")
+	for range 33 {
+		vector := NewMatrix(length, 1, make([]float64, length)...)
+		for i := 1; i < 9; i++ {
+			vector.Data[forward[prompt[len(prompt)-i]]]++
+		}
+		histogram := make([]int, length)
+		for range 256 {
+			min, index := math.MaxFloat64, 0
+			for i := range length {
+				if i == 0 {
+					continue
+				}
+				reverse := AI[i].T().MulT(vector.Sub(u[i]))
+				for iii := range reverse.Data {
+					reverse.Data[iii] *= rng.NormFloat64()
+				}
+				forward := A[i].MulT(reverse).Add(u[i])
+				fitness := L2(vector.Data, forward.Data)
+				if fitness < min {
+					min, index = fitness, i
+				}
+			}
+			histogram[index]++
+		}
+		sum, index, sample := 0, 0, rng.Intn(33)
+		for i, count := range histogram {
+			sum += count
+			if sample < sum {
+				index = i
+				break
+			}
+		}
+		fmt.Printf("%c %d\n", reverse[byte(index)], reverse[byte(index)])
+		prompt = append(prompt, reverse[byte(index)])
+	}
+	fmt.Println(string(prompt))
 }
