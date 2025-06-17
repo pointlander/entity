@@ -760,4 +760,20 @@ func main() {
 	if err != io.EOF {
 		panic("not at the end")
 	}
+
+	for i := range length {
+		x := A[i].MulT(AI[i])
+		count, total := 0, 0
+		for ii := range x.Rows {
+			for iii := range x.Cols {
+				if ii == iii {
+					if x.Data[ii*x.Cols+iii] < .9 {
+						count++
+					}
+					total++
+				}
+			}
+		}
+		fmt.Println(i, count, total, float64(count)/float64(total))
+	}
 }
