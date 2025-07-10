@@ -577,24 +577,8 @@ func IrisModel() {
 	fmt.Println(elapsed, correct, "/", len(iris), "=", float64(correct)/float64(len(iris)))
 }
 
-var (
-	// FlagIris the iris model
-	FlagIris = flag.Bool("iris", false, "the iris model")
-	// FlagBuild build the model
-	FlagBuild = flag.Bool("build", false, "build the model")
-)
-
-//go:embed books/*
-var Data embed.FS
-
-func main() {
-	flag.Parse()
-
-	if *FlagIris {
-		IrisModel()
-		return
-	}
-
+// Text is the text model
+func Text() {
 	file, err := Data.Open("books/100.txt.utf-8.bz2")
 	if err != nil {
 		panic(err)
@@ -824,4 +808,30 @@ func main() {
 		}
 	}
 	fmt.Println(grandMax, string(grandPrompt))
+}
+
+var (
+	// FlagIris the iris model
+	FlagIris = flag.Bool("iris", false, "the iris model")
+	// FlagText text model
+	FlagText = flag.Bool("text", false, "the text model")
+	// FlagBuild build the model
+	FlagBuild = flag.Bool("build", false, "build the model")
+)
+
+//go:embed books/*
+var Data embed.FS
+
+func main() {
+	flag.Parse()
+
+	if *FlagIris {
+		IrisModel()
+		return
+	}
+
+	if *FlagText {
+		Text()
+		return
+	}
 }
