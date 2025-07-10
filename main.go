@@ -834,4 +834,26 @@ func main() {
 		Text()
 		return
 	}
+
+	rng := rand.New(rand.NewSource(1))
+	state := make([][]float64, 8)
+	for i := range state {
+		for range 8 {
+			state[i] = append(state[i], rng.NormFloat64())
+		}
+		fmt.Println(state[i])
+	}
+	for i := 0; i < 8; i++ {
+		a, _, u := NewMultiVariateGaussian(Eta, rng, fmt.Sprintf("entropy_%d", i), 8, state)
+		for ii := range state {
+			g := NewMatrix(8, 1)
+			for range 8 {
+				g.Data = append(g.Data, rng.NormFloat64())
+			}
+			s := a.MulT(g).Add(u)
+			copy(state[ii], s.Data)
+			fmt.Println(state[ii])
+		}
+		fmt.Println()
+	}
 }
