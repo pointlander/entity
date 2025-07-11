@@ -17,6 +17,7 @@ import (
 	"math/rand"
 	"os"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -67,6 +68,8 @@ var Galaxies = [][]float64{
 
 //go:embed iris.zip
 var Iris embed.FS
+
+var log bool
 
 // Fisher is the fisher iris data
 type Fisher struct {
@@ -142,7 +145,9 @@ func Load() []Fisher {
 
 // NewMultiVariateGaussian
 func NewMultiVariateGaussian(eta float64, rng *rand.Rand, name string, size int, vectors [][]float64) (A, AI Matrix, u Matrix) {
-	fmt.Println(name)
+	if log {
+		fmt.Println(name)
+	}
 	avg := make([]float64, size)
 	for _, measures := range vectors {
 		for i, v := range measures {
@@ -174,13 +179,15 @@ func NewMultiVariateGaussian(eta float64, rng *rand.Rand, name string, size int,
 			}
 		}
 	}
-	fmt.Println("K=")
-	for i := range cov {
-		fmt.Println(cov[i])
+	if log {
+		fmt.Println("K=")
+		for i := range cov {
+			fmt.Println(cov[i])
+		}
+		fmt.Println("u=")
+		fmt.Println(avg)
+		fmt.Println()
 	}
-	fmt.Println("u=")
-	fmt.Println(avg)
-	fmt.Println()
 
 	set := tf64.NewSet()
 	set.Add("A", size, size)
@@ -843,17 +850,45 @@ func main() {
 		}
 		fmt.Println(state[i])
 	}
+	type Entity struct {
+		Vector  Matrix
+		Fitness float64
+	}
 	for i := 0; i < 8; i++ {
 		a, _, u := NewMultiVariateGaussian(Eta, rng, fmt.Sprintf("entropy_%d", i), 8, state)
-		for ii := range state {
+		pop := make([]Entity, 16)
+		for ii := range pop {
 			g := NewMatrix(8, 1)
 			for range 8 {
 				g.Data = append(g.Data, rng.NormFloat64())
 			}
-			s := a.MulT(g).Add(u)
-			copy(state[ii], s.Data)
-			fmt.Println(state[ii])
+			pop[ii].Vector = a.MulT(g).Add(u)
+			var histogram [2]float64
+			for _, value := range pop[ii].Vector.Data {
+				if value < 0 {
+					histogram[0]++
+				} else {
+					histogram[1]++
+				}
+			}
+			fitness := 0.0
+			for _, value := range histogram {
+				if value == 0 {
+					continue
+				}
+				fitness += (value / 8.0) * math.Log2(value/8.0)
+			}
+			pop[ii].Fitness = math.Abs(fitness)
 		}
-		fmt.Println()
+		sort.Slice(pop, func(i, j int) bool {
+			return pop[i].Fitness < pop[j].Fitness
+		})
+		for ii := range 8 {
+			copy(state[ii], pop[ii].Vector.Data)
+			if log {
+				fmt.Println(state[ii])
+			}
+		}
+		fmt.Println(pop[0].Fitness)
 	}
 }
