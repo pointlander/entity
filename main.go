@@ -144,7 +144,7 @@ func Load() []Fisher {
 }
 
 // NewMultiVariateGaussian
-func NewMultiVariateGaussian(eta float64, rng *rand.Rand, name string, size int, vectors [][]float64) (A, AI Matrix, u Matrix) {
+func NewMultiVariateGaussian(eta float64, graph, invert bool, rng *rand.Rand, name string, size int, vectors [][]float64) (A, AI Matrix, u Matrix) {
 	if log {
 		fmt.Println(name)
 	}
@@ -287,27 +287,29 @@ func NewMultiVariateGaussian(eta float64, rng *rand.Rand, name string, size int,
 			points = append(points, plotter.XY{X: float64(i), Y: float64(cost)})
 		}
 
-		p := plot.New()
+		if graph {
+			p := plot.New()
 
-		p.Title.Text = "epochs vs cost"
-		p.X.Label.Text = "epochs"
-		p.Y.Label.Text = "cost"
+			p.Title.Text = "epochs vs cost"
+			p.X.Label.Text = "epochs"
+			p.Y.Label.Text = "cost"
 
-		scatter, err := plotter.NewScatter(points)
-		if err != nil {
-			panic(err)
-		}
-		scatter.GlyphStyle.Radius = vg.Length(1)
-		scatter.GlyphStyle.Shape = draw.CircleGlyph{}
-		p.Add(scatter)
+			scatter, err := plotter.NewScatter(points)
+			if err != nil {
+				panic(err)
+			}
+			scatter.GlyphStyle.Radius = vg.Length(1)
+			scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+			p.Add(scatter)
 
-		err = p.Save(8*vg.Inch, 8*vg.Inch, fmt.Sprintf("epochs_%s.png", name))
-		if err != nil {
-			panic(err)
+			err = p.Save(8*vg.Inch, 8*vg.Inch, fmt.Sprintf("epochs_%s.png", name))
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
 
-	{
+	if invert {
 		loss := tf64.Sum(tf64.Quadratic(others.Get("I"), tf64.Mul(set.Get("A"), set.Get("AI"))))
 
 		points := make(plotter.XYs, 0, 8)
@@ -361,23 +363,25 @@ func NewMultiVariateGaussian(eta float64, rng *rand.Rand, name string, size int,
 			points = append(points, plotter.XY{X: float64(i), Y: float64(cost)})
 		}
 
-		p := plot.New()
+		if graph {
+			p := plot.New()
 
-		p.Title.Text = "epochs vs cost"
-		p.X.Label.Text = "epochs"
-		p.Y.Label.Text = "cost"
+			p.Title.Text = "epochs vs cost"
+			p.X.Label.Text = "epochs"
+			p.Y.Label.Text = "cost"
 
-		scatter, err := plotter.NewScatter(points)
-		if err != nil {
-			panic(err)
-		}
-		scatter.GlyphStyle.Radius = vg.Length(1)
-		scatter.GlyphStyle.Shape = draw.CircleGlyph{}
-		p.Add(scatter)
+			scatter, err := plotter.NewScatter(points)
+			if err != nil {
+				panic(err)
+			}
+			scatter.GlyphStyle.Radius = vg.Length(1)
+			scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+			p.Add(scatter)
 
-		err = p.Save(8*vg.Inch, 8*vg.Inch, fmt.Sprintf("inverse_epochs_%s.png", name))
-		if err != nil {
-			panic(err)
+			err = p.Save(8*vg.Inch, 8*vg.Inch, fmt.Sprintf("inverse_epochs_%s.png", name))
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
 
@@ -422,7 +426,7 @@ func IrisModel() {
 	var A, AI, u [3]Matrix
 	cal := [][]float64{}
 	for i := range vectors {
-		A[i], AI[i], u[i] = NewMultiVariateGaussian(Eta, rng, Inverse[i], 4, vectors[i])
+		A[i], AI[i], u[i] = NewMultiVariateGaussian(Eta, true, true, rng, Inverse[i], 4, vectors[i])
 		diff := A[i].MulT(AI[i])
 		c := make([]float64, 5)
 		for ii, value := range diff.Data {
@@ -631,7 +635,7 @@ func Text() {
 				}
 				index++
 			}
-			A[i], AI[i], u[i] = NewMultiVariateGaussian(1.0e-1, rng, fmt.Sprintf("%d_text", i), length, vectors)
+			A[i], AI[i], u[i] = NewMultiVariateGaussian(1.0e-1, true, true, rng, fmt.Sprintf("%d_text", i), length, vectors)
 
 			buffer64 := make([]byte, 8)
 			for _, parameter := range u[i].Data {
@@ -854,8 +858,10 @@ func main() {
 		Vector  Matrix
 		Fitness float64
 	}
-	for i := 0; i < 8; i++ {
-		a, _, u := NewMultiVariateGaussian(Eta, rng, fmt.Sprintf("entropy_%d", i), 8, state)
+	const iterations = 16
+	for i := 0; i < iterations; i++ {
+		graph := i == 0 || i == iterations-1
+		a, _, u := NewMultiVariateGaussian(Eta, graph, false, rng, fmt.Sprintf("entropy_%d", i), 8, state)
 		pop := make([]Entity, 16)
 		for ii := range pop {
 			g := NewMatrix(8, 1)
