@@ -13,7 +13,6 @@ import (
 	"flag"
 	"fmt"
 	"image"
-	"image/color"
 	"image/jpeg"
 	"io"
 	"math"
@@ -857,32 +856,44 @@ func main() {
 	}
 
 	rng := rand.New(rand.NewSource(1))
-	state := make([][]float64, 32)
+	var state [8][][]float64
 	for i := range state {
-		for range 64 {
-			state[i] = append(state[i], rng.Float64())
+		state[i] = make([][]float64, 8)
+		for ii := range state[i] {
+			for range 64 {
+				state[i][ii] = append(state[i][ii], rng.NormFloat64())
+			}
+			fmt.Println(state[i])
 		}
-		fmt.Println(state[i])
 	}
 	type Entity struct {
-		Vector  Matrix
+		Vector  [8]Matrix
 		Fitness float64
 	}
 	const iterations = 256
 	for i := 0; i < iterations; i++ {
 		graph := i == 0 || i == iterations-1
-		a, _, u := NewMultiVariateGaussian(.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("entropy_%d", i), 64, state)
+		var a, u [8]Matrix
+		for ii := range a {
+			a[ii], _, u[ii] = NewMultiVariateGaussian(.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("entropy_%d", i), 64, state[ii])
+		}
 		pop := make([]Entity, 256)
 		for ii := range pop {
-			g := NewMatrix(64, 1)
-			for range 8 {
-				g.Data = append(g.Data, rng.NormFloat64())
-			}
-			pop[ii].Vector = a.MulT(g).Add(u)
 			img := image.NewGray(image.Rect(0, 0, 8, 8))
-			for iii := range 8 {
-				for iv := range 8 {
-					img.SetGray(iii, iv, color.Gray{uint8(255 * pop[ii].Vector.Data[iii*8+iv])})
+			for v := range a {
+				g := NewMatrix(64, 1)
+				for range 8 {
+					g.Data = append(g.Data, rng.NormFloat64())
+				}
+				pop[ii].Vector[v] = a[v].MulT(g).Add(u[v])
+				for iii := range 8 {
+					for iv := range 8 {
+						if pop[ii].Vector[v].Data[iii*8+iv] > 0 {
+							pixel := img.GrayAt(iii, iv)
+							pixel.Y |= 1 << v
+							img.SetGray(iii, iv, pixel)
+						}
+					}
 				}
 			}
 			buffer := bytes.Buffer{}
@@ -911,17 +922,29 @@ func main() {
 		sort.Slice(pop, func(i, j int) bool {
 			return pop[i].Fitness < pop[j].Fitness
 		})
-		for ii := range 32 {
-			copy(state[ii], pop[ii].Vector.Data)
-			if log {
-				fmt.Println(state[ii])
+		for v := range state {
+			for ii := range 8 {
+				copy(state[v][ii], pop[ii].Vector[v].Data)
+				if log {
+					fmt.Println(state[v][ii])
+				}
 			}
 		}
 		{
 			img := image.NewGray(image.Rect(0, 0, 8, 8))
-			for iii := range 8 {
-				for iv := range 8 {
-					img.SetGray(iii, iv, color.Gray{uint8(255 * pop[0].Vector.Data[iii*8+iv])})
+			for v := range a {
+				g := NewMatrix(512, 1)
+				for range 8 {
+					g.Data = append(g.Data, rng.NormFloat64())
+				}
+				for iii := range 8 {
+					for iv := range 8 {
+						if pop[0].Vector[v].Data[iii*8+iv] > 0 {
+							pixel := img.GrayAt(iii, iv)
+							pixel.Y |= 1 << v
+							img.SetGray(iii, iv, pixel)
+						}
+					}
 				}
 			}
 			output, err := os.Create(fmt.Sprintf("img_%d.jpg", i))
