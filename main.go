@@ -144,7 +144,7 @@ func Load() []Fisher {
 }
 
 // NewMultiVariateGaussian
-func NewMultiVariateGaussian(eta float64, graph, invert bool, rng *rand.Rand, name string, size int, vectors [][]float64) (A, AI Matrix, u Matrix) {
+func NewMultiVariateGaussian(cutoff, eta float64, graph, invert bool, rng *rand.Rand, name string, size int, vectors [][]float64) (A, AI Matrix, u Matrix) {
 	if log {
 		fmt.Println(name)
 	}
@@ -236,8 +236,8 @@ func NewMultiVariateGaussian(eta float64, graph, invert bool, rng *rand.Rand, na
 	{
 		loss := tf64.Sum(tf64.Quadratic(others.Get("E"), tf64.Mul(set.Get("A"), set.Get("A"))))
 
-		points := make(plotter.XYs, 0, 8)
-		for i := range 1024 {
+		points, i := make(plotter.XYs, 0, 8), 0
+		for {
 			pow := func(x float64) float64 {
 				y := math.Pow(x, float64(i+1))
 				if math.IsNaN(y) || math.IsInf(y, 0) {
@@ -285,6 +285,10 @@ func NewMultiVariateGaussian(eta float64, graph, invert bool, rng *rand.Rand, na
 				}
 			}
 			points = append(points, plotter.XY{X: float64(i), Y: float64(cost)})
+			i++
+			if i >= 1024 || ((cutoff != -1) && cost < cutoff) {
+				break
+			}
 		}
 
 		if graph {
@@ -312,8 +316,8 @@ func NewMultiVariateGaussian(eta float64, graph, invert bool, rng *rand.Rand, na
 	if invert {
 		loss := tf64.Sum(tf64.Quadratic(others.Get("I"), tf64.Mul(set.Get("A"), set.Get("AI"))))
 
-		points := make(plotter.XYs, 0, 8)
-		for i := range 16 * 1024 {
+		points, i := make(plotter.XYs, 0, 8), 0
+		for {
 			pow := func(x float64) float64 {
 				y := math.Pow(x, float64(i+1))
 				if math.IsNaN(y) || math.IsInf(y, 0) {
@@ -361,6 +365,9 @@ func NewMultiVariateGaussian(eta float64, graph, invert bool, rng *rand.Rand, na
 				}
 			}
 			points = append(points, plotter.XY{X: float64(i), Y: float64(cost)})
+			if i >= 16*1024 || ((cutoff != -1) && cost < cutoff) {
+				break
+			}
 		}
 
 		if graph {
@@ -426,7 +433,7 @@ func IrisModel() {
 	var A, AI, u [3]Matrix
 	cal := [][]float64{}
 	for i := range vectors {
-		A[i], AI[i], u[i] = NewMultiVariateGaussian(Eta, true, true, rng, Inverse[i], 4, vectors[i])
+		A[i], AI[i], u[i] = NewMultiVariateGaussian(-1, Eta, true, true, rng, Inverse[i], 4, vectors[i])
 		diff := A[i].MulT(AI[i])
 		c := make([]float64, 5)
 		for ii, value := range diff.Data {
@@ -635,7 +642,7 @@ func Text() {
 				}
 				index++
 			}
-			A[i], AI[i], u[i] = NewMultiVariateGaussian(1.0e-1, true, true, rng, fmt.Sprintf("%d_text", i), length, vectors)
+			A[i], AI[i], u[i] = NewMultiVariateGaussian(-1.0, 1.0e-1, true, true, rng, fmt.Sprintf("%d_text", i), length, vectors)
 
 			buffer64 := make([]byte, 8)
 			for _, parameter := range u[i].Data {
@@ -861,7 +868,7 @@ func main() {
 	const iterations = 16
 	for i := 0; i < iterations; i++ {
 		graph := i == 0 || i == iterations-1
-		a, _, u := NewMultiVariateGaussian(Eta, graph, false, rng, fmt.Sprintf("entropy_%d", i), 8, state)
+		a, _, u := NewMultiVariateGaussian(.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("entropy_%d", i), 8, state)
 		pop := make([]Entity, 16)
 		for ii := range pop {
 			g := NewMatrix(8, 1)
