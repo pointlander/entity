@@ -933,10 +933,6 @@ func main() {
 		{
 			img := image.NewGray(image.Rect(0, 0, 8, 8))
 			for v := range a {
-				g := NewMatrix(512, 1)
-				for range 8 {
-					g.Data = append(g.Data, rng.NormFloat64())
-				}
 				for iii := range 8 {
 					for iv := range 8 {
 						if pop[0].Vector[v].Data[iii*8+iv] > 0 {
