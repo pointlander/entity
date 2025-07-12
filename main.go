@@ -12,6 +12,9 @@ import (
 	"encoding/csv"
 	"flag"
 	"fmt"
+	"image"
+	"image/color"
+	"image/jpeg"
 	"io"
 	"math"
 	"math/rand"
@@ -854,10 +857,10 @@ func main() {
 	}
 
 	rng := rand.New(rand.NewSource(1))
-	state := make([][]float64, 8)
+	state := make([][]float64, 32)
 	for i := range state {
-		for range 8 {
-			state[i] = append(state[i], rng.NormFloat64())
+		for range 64 {
+			state[i] = append(state[i], rng.Float64())
 		}
 		fmt.Println(state[i])
 	}
@@ -865,18 +868,30 @@ func main() {
 		Vector  Matrix
 		Fitness float64
 	}
-	const iterations = 16
+	const iterations = 256
 	for i := 0; i < iterations; i++ {
 		graph := i == 0 || i == iterations-1
-		a, _, u := NewMultiVariateGaussian(.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("entropy_%d", i), 8, state)
-		pop := make([]Entity, 16)
+		a, _, u := NewMultiVariateGaussian(.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("entropy_%d", i), 64, state)
+		pop := make([]Entity, 256)
 		for ii := range pop {
-			g := NewMatrix(8, 1)
+			g := NewMatrix(64, 1)
 			for range 8 {
 				g.Data = append(g.Data, rng.NormFloat64())
 			}
 			pop[ii].Vector = a.MulT(g).Add(u)
-			var histogram [2]float64
+			img := image.NewGray(image.Rect(0, 0, 8, 8))
+			for iii := range 8 {
+				for iv := range 8 {
+					img.SetGray(iii, iv, color.Gray{uint8(255 * pop[ii].Vector.Data[iii*8+iv])})
+				}
+			}
+			buffer := bytes.Buffer{}
+			err := jpeg.Encode(&buffer, img, nil)
+			if err != nil {
+				panic(err)
+			}
+			pop[ii].Fitness = float64(buffer.Len())
+			/*var histogram [2]float64
 			for _, value := range pop[ii].Vector.Data {
 				if value < 0 {
 					histogram[0]++
@@ -891,16 +906,33 @@ func main() {
 				}
 				fitness += (value / 8.0) * math.Log2(value/8.0)
 			}
-			pop[ii].Fitness = math.Abs(fitness)
+			pop[ii].Fitness = math.Abs(fitness)*/
 		}
 		sort.Slice(pop, func(i, j int) bool {
 			return pop[i].Fitness < pop[j].Fitness
 		})
-		for ii := range 8 {
+		for ii := range 32 {
 			copy(state[ii], pop[ii].Vector.Data)
 			if log {
 				fmt.Println(state[ii])
 			}
+		}
+		{
+			img := image.NewGray(image.Rect(0, 0, 8, 8))
+			for iii := range 8 {
+				for iv := range 8 {
+					img.SetGray(iii, iv, color.Gray{uint8(255 * pop[0].Vector.Data[iii*8+iv])})
+				}
+			}
+			output, err := os.Create(fmt.Sprintf("img_%d.jpg", i))
+			if err != nil {
+				panic(err)
+			}
+			err = jpeg.Encode(output, img, nil)
+			if err != nil {
+				panic(err)
+			}
+			output.Close()
 		}
 		fmt.Println(pop[0].Fitness)
 	}
