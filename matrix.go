@@ -134,6 +134,19 @@ func (m Matrix) Softmax(T float64) Matrix {
 	return output
 }
 
+// Sigmoid computes the sigmoid of a matrix
+func Sigmoid(m Matrix) Matrix {
+	o := Matrix{
+		Cols: m.Cols,
+		Rows: m.Rows,
+		Data: make([]float64, 0, m.Cols*m.Rows),
+	}
+	for _, value := range m.Data {
+		o.Data = append(o.Data, 1/(1+math.Exp(-value)))
+	}
+	return o
+}
+
 // Entropy calculates the entropy of the matrix rows
 func (m Matrix) Entropy() Matrix {
 	output := NewMatrix(m.Rows, 1)
