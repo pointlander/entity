@@ -830,31 +830,8 @@ func Text() {
 	fmt.Println(grandMax, string(grandPrompt))
 }
 
-var (
-	// FlagIris the iris model
-	FlagIris = flag.Bool("iris", false, "the iris model")
-	// FlagText text model
-	FlagText = flag.Bool("text", false, "the text model")
-	// FlagBuild build the model
-	FlagBuild = flag.Bool("build", false, "build the model")
-)
-
-//go:embed books/*
-var Data embed.FS
-
-func main() {
-	flag.Parse()
-
-	if *FlagIris {
-		IrisModel()
-		return
-	}
-
-	if *FlagText {
-		Text()
-		return
-	}
-
+// Image is the image model
+func Image() {
 	rng := rand.New(rand.NewSource(1))
 	var state [8][][]float64
 	for i := range state {
@@ -954,5 +931,38 @@ func main() {
 			output.Close()
 		}
 		fmt.Println(pop[0].Fitness)
+	}
+}
+
+var (
+	// FlagIris the iris model
+	FlagIris = flag.Bool("iris", false, "the iris model")
+	// FlagText text model
+	FlagText = flag.Bool("text", false, "the text model")
+	// FlagImage the image mode
+	FlagImage = flag.Bool("image", false, "the image mode")
+	// FlagBuild build the model
+	FlagBuild = flag.Bool("build", false, "build the model")
+)
+
+//go:embed books/*
+var Data embed.FS
+
+func main() {
+	flag.Parse()
+
+	if *FlagIris {
+		IrisModel()
+		return
+	}
+
+	if *FlagText {
+		Text()
+		return
+	}
+
+	if *FlagImage {
+		Image()
+		return
 	}
 }
