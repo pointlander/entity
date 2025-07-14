@@ -973,28 +973,34 @@ func main() {
 		Fitness float64
 	}
 
+	const (
+		size       = 4
+		width      = size*size + size
+		iterations = 256
+		population = 128
+	)
+
 	state := make([][]float64, 8)
 	for i := range state {
-		for range 16 + 4 {
+		for range width {
 			state[i] = append(state[i], rng.NormFloat64())
 		}
 		fmt.Println(state[i])
 	}
-	const iterations = 256
 	for i := 0; i < iterations; i++ {
 		graph := i == 0 || i == iterations-1
-		a, _, u := NewMultiVariateGaussian(.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("rnn_%d", i), 20, state)
-		pop := make([]RNN, 128)
+		a, _, u := NewMultiVariateGaussian(.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("rnn_%d", i), width, state)
+		pop := make([]RNN, population)
 		for ii := range pop {
-			g := NewMatrix(20, 1)
-			for range 20 {
+			g := NewMatrix(a.Cols, 1)
+			for range a.Cols {
 				g.Data = append(g.Data, rng.NormFloat64())
 			}
 			vector := a.MulT(g).Add(u)
-			pop[ii].Layer = NewMatrix(4, 4, vector.Data[:16]...)
-			pop[ii].Bias = NewMatrix(4, 1, vector.Data[16:20]...)
-			input := NewMatrix(4, 1)
-			input.Data = make([]float64, 4)
+			pop[ii].Layer = NewMatrix(size, size, vector.Data[:size*size]...)
+			pop[ii].Bias = NewMatrix(size, 1, vector.Data[size*size:width]...)
+			input := NewMatrix(size, 1)
+			input.Data = make([]float64, size)
 			for iii := range 4 {
 				input = Sigmoid(pop[ii].Layer.MulT(input).Add(pop[ii].Bias))
 				diff := input.Data[0] - float64(iii&1)
