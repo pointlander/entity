@@ -974,37 +974,54 @@ func main() {
 	}
 
 	const (
-		size       = 4
+		size       = 16
 		width      = size*size + size
 		iterations = 256
-		population = 128
+		population = 256
 	)
+
+	file, err := Data.Open("books/100.txt.utf-8.bz2")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+	reader := bzip2.NewReader(file)
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		panic(err)
+	}
 
 	state := make([][]float64, 8)
 	for i := range state {
 		for range width {
 			state[i] = append(state[i], rng.NormFloat64())
 		}
-		fmt.Println(state[i])
 	}
+	pop := make([]RNN, population)
 	for i := 0; i < iterations; i++ {
 		graph := i == 0 || i == iterations-1
 		a, _, u := NewMultiVariateGaussian(.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("rnn_%d", i), width, state)
-		pop := make([]RNN, population)
-		for ii := range pop {
+		born := pop
+		if i > 0 {
+			born = pop[8:]
+		}
+		for ii := range born {
 			g := NewMatrix(a.Cols, 1)
 			for range a.Cols {
 				g.Data = append(g.Data, rng.NormFloat64())
 			}
 			vector := a.MulT(g).Add(u)
-			pop[ii].Layer = NewMatrix(size, size, vector.Data[:size*size]...)
-			pop[ii].Bias = NewMatrix(size, 1, vector.Data[size*size:width]...)
+			born[ii].Layer = NewMatrix(size, size, vector.Data[:size*size]...)
+			born[ii].Bias = NewMatrix(size, 1, vector.Data[size*size:width]...)
+			born[ii].Fitness = 0.0
 			input := NewMatrix(size, 1)
 			input.Data = make([]float64, size)
-			for iii := range 4 {
-				input = Sigmoid(pop[ii].Layer.MulT(input).Add(pop[ii].Bias))
-				diff := input.Data[0] - float64(iii&1)
-				pop[ii].Fitness += diff * diff
+			for _, symbol := range data[:1024] {
+				input = Sigmoid(born[ii].Layer.MulT(input).Add(born[ii].Bias))
+				for iv := range 8 {
+					diff := input.Data[iv] - float64((symbol>>iv)&1)
+					born[ii].Fitness += diff * diff
+				}
 			}
 		}
 		sort.Slice(pop, func(i, j int) bool {
