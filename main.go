@@ -965,4 +965,49 @@ func main() {
 		Image()
 		return
 	}
+
+	rng := rand.New(rand.NewSource(1))
+	type RNN struct {
+		Layer   Matrix
+		Bias    Matrix
+		Fitness float64
+	}
+
+	state := make([][]float64, 8)
+	for i := range state {
+		for range 16 + 4 {
+			state[i] = append(state[i], rng.NormFloat64())
+		}
+		fmt.Println(state[i])
+	}
+	const iterations = 256
+	for i := 0; i < iterations; i++ {
+		graph := i == 0 || i == iterations-1
+		a, _, u := NewMultiVariateGaussian(.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("rnn_%d", i), 20, state)
+		pop := make([]RNN, 128)
+		for ii := range pop {
+			g := NewMatrix(20, 1)
+			for range 20 {
+				g.Data = append(g.Data, rng.NormFloat64())
+			}
+			vector := a.MulT(g).Add(u)
+			pop[ii].Layer = NewMatrix(4, 4, vector.Data[:16]...)
+			pop[ii].Bias = NewMatrix(4, 1, vector.Data[16:20]...)
+			input := NewMatrix(4, 1)
+			input.Data = make([]float64, 4)
+			for iii := range 4 {
+				input = Sigmoid(pop[ii].Layer.MulT(input).Add(pop[ii].Bias))
+				diff := input.Data[0] - float64(iii&1)
+				pop[ii].Fitness += diff * diff
+			}
+		}
+		sort.Slice(pop, func(i, j int) bool {
+			return pop[i].Fitness < pop[j].Fitness
+		})
+		for ii := range state {
+			copy(state[ii], pop[ii].Layer.Data)
+			copy(state[ii][16:], pop[ii].Bias.Data)
+		}
+		fmt.Println(pop[0].Fitness)
+	}
 }
