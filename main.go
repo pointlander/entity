@@ -974,7 +974,7 @@ func main() {
 	}
 
 	const (
-		size       = 16
+		size       = 256
 		width      = size*size + size
 		models     = width / 8
 		iterations = 256
@@ -991,6 +991,18 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	forward, reverse, code := make(map[rune]byte), make(map[byte]rune), byte(0)
+	for _, v := range string(data) {
+		if _, ok := forward[v]; !ok {
+			forward[v] = code
+			reverse[code] = v
+			code++
+			if code > 255 {
+				panic("not enough codes")
+			}
+		}
+	}
+
 	state := make([][]float64, 8)
 	for i := range state {
 		for range width {
@@ -999,7 +1011,7 @@ func main() {
 	}
 	pop := make([]RNN, population)
 	for i := 0; i < iterations; i++ {
-		graph := i == 0 || i == iterations-1
+		graph := false //i == 0 || i == iterations-1
 		translate := make([]int, width)
 		for i := range translate {
 			translate[i] = i % models
@@ -1044,10 +1056,16 @@ func main() {
 			born[ii].Fitness = 0.0
 			input := NewMatrix(size, 1)
 			input.Data = make([]float64, size)
-			for _, symbol := range data[:1024] {
+			for _, symbol := range []rune(string(data))[:1024] {
 				input = Sigmoid(born[ii].Layer.MulT(input).Add(born[ii].Bias))
-				for iv := range 8 {
-					diff := input.Data[iv] - float64((symbol>>iv)&1)
+				target := forward[symbol]
+				for iv := range len(forward) {
+					var diff float64
+					if iv == int(target) {
+						diff = input.Data[iv] - 1
+					} else {
+						diff = input.Data[iv] - 0
+					}
 					born[ii].Fitness += diff * diff
 				}
 			}
