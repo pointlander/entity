@@ -976,6 +976,7 @@ func main() {
 	const (
 		size       = 16
 		width      = size*size + size
+		models     = width / 8
 		iterations = 256
 		population = 256
 	)
@@ -990,7 +991,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
 	state := make([][]float64, 8)
 	for i := range state {
 		for range width {
@@ -1000,17 +1000,45 @@ func main() {
 	pop := make([]RNN, population)
 	for i := 0; i < iterations; i++ {
 		graph := i == 0 || i == iterations-1
-		a, _, u := NewMultiVariateGaussian(.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("rnn_%d", i), width, state)
+		translate := make([]int, width)
+		for i := range translate {
+			translate[i] = i % models
+		}
+		rng.Shuffle(width, func(i, j int) {
+			translate[i], translate[j] = translate[j], translate[i]
+		})
+		var a, u [models]Matrix
+		for ii := range models {
+			s := make([][]float64, 8)
+			for iii := range state {
+				for iv, t := range translate {
+					if t == ii {
+						s[iii] = append(s[iii], state[iii][iv])
+					}
+				}
+			}
+			a[ii], _, u[ii] = NewMultiVariateGaussian(.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("rnn_%d", i), 8, s)
+		}
 		born := pop
 		if i > 0 {
 			born = pop[8:]
 		}
 		for ii := range born {
-			g := NewMatrix(a.Cols, 1)
-			for range a.Cols {
-				g.Data = append(g.Data, rng.NormFloat64())
+			vector := NewMatrix(width, 1)
+			vector.Data = make([]float64, width)
+			for iii := range a {
+				g := NewMatrix(a[iii].Cols, 1)
+				for range a[iii].Cols {
+					g.Data = append(g.Data, rng.NormFloat64())
+				}
+				vec, index := a[iii].MulT(g).Add(u[iii]), 0
+				for iv, t := range translate {
+					if t == iii {
+						vector.Data[iv] = vec.Data[index]
+						index++
+					}
+				}
 			}
-			vector := a.MulT(g).Add(u)
 			born[ii].Layer = NewMatrix(size, size, vector.Data[:size*size]...)
 			born[ii].Bias = NewMatrix(size, 1, vector.Data[size*size:width]...)
 			born[ii].Fitness = 0.0
