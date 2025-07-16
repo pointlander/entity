@@ -7,6 +7,8 @@ package main
 import (
 	"fmt"
 	"math"
+
+	"github.com/pointlander/entity/vector"
 )
 
 const (
@@ -197,8 +199,19 @@ func (m Matrix[T]) T() Matrix[T] {
 }
 
 func dot[T Float](x, y []T) (z T) {
-	for i := range x {
-		z += x[i] * y[i]
+	switch x := any(x).(type) {
+	case []float64:
+		switch y := any(y).(type) {
+		case []float64:
+			for i := range x {
+				z += T(x[i] * y[i])
+			}
+		}
+	case []float32:
+		switch y := any(y).(type) {
+		case []float32:
+			z = T(vector.Dot(x, y))
+		}
 	}
 	return z
 }
