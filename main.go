@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pointlander/gradient/tf32"
 	"github.com/pointlander/gradient/tf64"
 
 	"gonum.org/v1/plot"
@@ -146,11 +147,11 @@ func Load() []Fisher {
 }
 
 // NewMultiVariateGaussian
-func NewMultiVariateGaussian[T Float](cutoff, eta float64, graph, invert bool, rng *rand.Rand, name string, size int, vectors [][]float64) (A, AI Matrix[T], u Matrix[T]) {
+func NewMultiVariateGaussian[T Float](cutoff, eta float64, graph, invert bool, rng *rand.Rand, name string, size int, vectors [][]T) (A, AI Matrix[T], u Matrix[T]) {
 	if log {
 		fmt.Println(name)
 	}
-	avg := make([]float64, size)
+	avg := make([]T, size)
 	for _, measures := range vectors {
 		for i, v := range measures {
 			avg[i] += v
@@ -158,12 +159,12 @@ func NewMultiVariateGaussian[T Float](cutoff, eta float64, graph, invert bool, r
 	}
 	if len(vectors) > 0 {
 		for i := range avg {
-			avg[i] /= float64(len(vectors))
+			avg[i] /= T(len(vectors))
 		}
 	}
-	cov := make([][]float64, size)
+	cov := make([][]T, size)
 	for i := range cov {
-		cov[i] = make([]float64, size)
+		cov[i] = make([]T, size)
 	}
 	for _, measures := range vectors {
 		for i, v := range measures {
@@ -177,7 +178,7 @@ func NewMultiVariateGaussian[T Float](cutoff, eta float64, graph, invert bool, r
 	if len(vectors) > 0 {
 		for i := range cov {
 			for ii := range cov[i] {
-				cov[i][ii] = cov[i][ii] / float64(len(vectors))
+				cov[i][ii] = cov[i][ii] / T(len(vectors))
 			}
 		}
 	}
@@ -191,220 +192,439 @@ func NewMultiVariateGaussian[T Float](cutoff, eta float64, graph, invert bool, r
 		fmt.Println()
 	}
 
-	set := tf64.NewSet()
-	set.Add("A", size, size)
-	set.Add("AI", size, size)
+	switch any(vectors).(type) {
+	case [][]float64:
+		set := tf64.NewSet()
+		set.Add("A", size, size)
+		set.Add("AI", size, size)
 
-	for i := range set.Weights {
-		w := set.Weights[i]
-		if strings.HasPrefix(w.N, "b") {
-			w.X = w.X[:cap(w.X)]
+		for i := range set.Weights {
+			w := set.Weights[i]
+			if strings.HasPrefix(w.N, "b") {
+				w.X = w.X[:cap(w.X)]
+				w.States = make([][]float64, StateTotal)
+				for ii := range w.States {
+					w.States[ii] = make([]float64, len(w.X))
+				}
+				continue
+			}
+			factor := math.Sqrt(2.0 / float64(w.S[0]))
+			for range cap(w.X) {
+				w.X = append(w.X, rng.NormFloat64()*factor)
+			}
 			w.States = make([][]float64, StateTotal)
 			for ii := range w.States {
 				w.States[ii] = make([]float64, len(w.X))
 			}
-			continue
 		}
-		factor := math.Sqrt(2.0 / float64(w.S[0]))
-		for range cap(w.X) {
-			w.X = append(w.X, rng.NormFloat64()*factor)
-		}
-		w.States = make([][]float64, StateTotal)
-		for ii := range w.States {
-			w.States[ii] = make([]float64, len(w.X))
-		}
-	}
 
-	others := tf64.NewSet()
-	others.Add("E", size, size)
-	others.Add("I", size, size)
-	E := others.ByName["E"]
-	for i := range cov {
-		for ii := range cov[i] {
-			E.X = append(E.X, cov[i][ii])
-		}
-	}
-	I := others.ByName["I"]
-	for i := range size {
-		for ii := range size {
-			if i == ii {
-				I.X = append(I.X, 1)
-			} else {
-				I.X = append(I.X, 0)
+		others := tf64.NewSet()
+		others.Add("E", size, size)
+		others.Add("I", size, size)
+		E := others.ByName["E"]
+		for i := range cov {
+			for ii := range cov[i] {
+				E.X = append(E.X, float64(cov[i][ii]))
 			}
 		}
-	}
-
-	{
-		loss := tf64.Sum(tf64.Quadratic(others.Get("E"), tf64.Mul(set.Get("A"), set.Get("A"))))
-
-		points, i := make(plotter.XYs, 0, 8), 0
-		for {
-			pow := func(x float64) float64 {
-				y := math.Pow(x, float64(i+1))
-				if math.IsNaN(y) || math.IsInf(y, 0) {
-					return 0
-				}
-				return y
-			}
-
-			set.Zero()
-			others.Zero()
-			cost := tf64.Gradient(loss).X[0]
-			if math.IsNaN(float64(cost)) || math.IsInf(float64(cost), 0) {
-				fmt.Println(i, cost)
-				break
-			}
-
-			norm := 0.0
-			for _, p := range set.Weights {
-				for _, d := range p.D {
-					norm += d * d
+		I := others.ByName["I"]
+		for i := range size {
+			for ii := range size {
+				if i == ii {
+					I.X = append(I.X, 1)
+				} else {
+					I.X = append(I.X, 0)
 				}
 			}
-			norm = math.Sqrt(norm)
-			b1, b2 := pow(B1), pow(B2)
-			scaling := 1.0
-			if norm > 1 {
-				scaling = 1 / norm
-			}
-			for _, w := range set.Weights {
-				if w.N != "A" {
-					continue
-				}
-				for ii, d := range w.D {
-					g := d * scaling
-					m := B1*w.States[StateM][ii] + (1-B1)*g
-					v := B2*w.States[StateV][ii] + (1-B2)*g*g
-					w.States[StateM][ii] = m
-					w.States[StateV][ii] = v
-					mhat := m / (1 - b1)
-					vhat := v / (1 - b2)
-					if vhat < 0 {
-						vhat = 0
+		}
+
+		{
+			loss := tf64.Sum(tf64.Quadratic(others.Get("E"), tf64.Mul(set.Get("A"), set.Get("A"))))
+
+			points, i := make(plotter.XYs, 0, 8), 0
+			for {
+				pow := func(x float64) float64 {
+					y := math.Pow(x, float64(i+1))
+					if math.IsNaN(y) || math.IsInf(y, 0) {
+						return 0
 					}
-					w.X[ii] -= Eta * mhat / (math.Sqrt(vhat) + 1e-8)
+					return y
 				}
-			}
-			points = append(points, plotter.XY{X: float64(i), Y: float64(cost)})
-			i++
-			if i >= 1024 || ((cutoff != -1) && cost < cutoff) {
-				break
-			}
-		}
 
-		if graph {
-			p := plot.New()
-
-			p.Title.Text = "epochs vs cost"
-			p.X.Label.Text = "epochs"
-			p.Y.Label.Text = "cost"
-
-			scatter, err := plotter.NewScatter(points)
-			if err != nil {
-				panic(err)
-			}
-			scatter.GlyphStyle.Radius = vg.Length(1)
-			scatter.GlyphStyle.Shape = draw.CircleGlyph{}
-			p.Add(scatter)
-
-			err = p.Save(8*vg.Inch, 8*vg.Inch, fmt.Sprintf("epochs_%s.png", name))
-			if err != nil {
-				panic(err)
-			}
-		}
-	}
-
-	if invert {
-		loss := tf64.Sum(tf64.Quadratic(others.Get("I"), tf64.Mul(set.Get("A"), set.Get("AI"))))
-
-		points, i := make(plotter.XYs, 0, 8), 0
-		for {
-			pow := func(x float64) float64 {
-				y := math.Pow(x, float64(i+1))
-				if math.IsNaN(y) || math.IsInf(y, 0) {
-					return 0
+				set.Zero()
+				others.Zero()
+				cost := tf64.Gradient(loss).X[0]
+				if math.IsNaN(float64(cost)) || math.IsInf(float64(cost), 0) {
+					fmt.Println(i, cost)
+					break
 				}
-				return y
-			}
 
-			set.Zero()
-			others.Zero()
-			cost := tf64.Gradient(loss).X[0]
-			if math.IsNaN(float64(cost)) || math.IsInf(float64(cost), 0) {
-				fmt.Println(i, cost)
-				break
-			}
-
-			norm := 0.0
-			for _, p := range set.Weights {
-				for _, d := range p.D {
-					norm += d * d
-				}
-			}
-			norm = math.Sqrt(norm)
-			b1, b2 := pow(B1), pow(B2)
-			scaling := 1.0
-			if norm > 1 {
-				scaling = 1 / norm
-			}
-			for _, w := range set.Weights {
-				if w.N != "AI" {
-					continue
-				}
-				for ii, d := range w.D {
-					g := d * scaling
-					m := B1*w.States[StateM][ii] + (1-B1)*g
-					v := B2*w.States[StateV][ii] + (1-B2)*g*g
-					w.States[StateM][ii] = m
-					w.States[StateV][ii] = v
-					mhat := m / (1 - b1)
-					vhat := v / (1 - b2)
-					if vhat < 0 {
-						vhat = 0
+				norm := 0.0
+				for _, p := range set.Weights {
+					for _, d := range p.D {
+						norm += d * d
 					}
-					w.X[ii] -= eta * mhat / (math.Sqrt(vhat) + 1e-8)
+				}
+				norm = math.Sqrt(norm)
+				b1, b2 := pow(B1), pow(B2)
+				scaling := 1.0
+				if norm > 1 {
+					scaling = 1 / norm
+				}
+				for _, w := range set.Weights {
+					if w.N != "A" {
+						continue
+					}
+					for ii, d := range w.D {
+						g := d * scaling
+						m := B1*w.States[StateM][ii] + (1-B1)*g
+						v := B2*w.States[StateV][ii] + (1-B2)*g*g
+						w.States[StateM][ii] = m
+						w.States[StateV][ii] = v
+						mhat := m / (1 - b1)
+						vhat := v / (1 - b2)
+						if vhat < 0 {
+							vhat = 0
+						}
+						w.X[ii] -= Eta * mhat / (math.Sqrt(vhat) + 1e-8)
+					}
+				}
+				points = append(points, plotter.XY{X: float64(i), Y: float64(cost)})
+				i++
+				if i >= 1024 || ((cutoff != -1) && cost < cutoff) {
+					break
 				}
 			}
-			points = append(points, plotter.XY{X: float64(i), Y: float64(cost)})
-			if i >= 16*1024 || ((cutoff != -1) && cost < cutoff) {
-				break
+
+			if graph {
+				p := plot.New()
+
+				p.Title.Text = "epochs vs cost"
+				p.X.Label.Text = "epochs"
+				p.Y.Label.Text = "cost"
+
+				scatter, err := plotter.NewScatter(points)
+				if err != nil {
+					panic(err)
+				}
+				scatter.GlyphStyle.Radius = vg.Length(1)
+				scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+				p.Add(scatter)
+
+				err = p.Save(8*vg.Inch, 8*vg.Inch, fmt.Sprintf("epochs_%s.png", name))
+				if err != nil {
+					panic(err)
+				}
 			}
 		}
 
-		if graph {
-			p := plot.New()
+		if invert {
+			loss := tf64.Sum(tf64.Quadratic(others.Get("I"), tf64.Mul(set.Get("A"), set.Get("AI"))))
 
-			p.Title.Text = "epochs vs cost"
-			p.X.Label.Text = "epochs"
-			p.Y.Label.Text = "cost"
+			points, i := make(plotter.XYs, 0, 8), 0
+			for {
+				pow := func(x float64) float64 {
+					y := math.Pow(x, float64(i+1))
+					if math.IsNaN(y) || math.IsInf(y, 0) {
+						return 0
+					}
+					return y
+				}
 
-			scatter, err := plotter.NewScatter(points)
-			if err != nil {
-				panic(err)
+				set.Zero()
+				others.Zero()
+				cost := tf64.Gradient(loss).X[0]
+				if math.IsNaN(float64(cost)) || math.IsInf(float64(cost), 0) {
+					fmt.Println(i, cost)
+					break
+				}
+
+				norm := 0.0
+				for _, p := range set.Weights {
+					for _, d := range p.D {
+						norm += d * d
+					}
+				}
+				norm = math.Sqrt(norm)
+				b1, b2 := pow(B1), pow(B2)
+				scaling := 1.0
+				if norm > 1 {
+					scaling = 1 / norm
+				}
+				for _, w := range set.Weights {
+					if w.N != "AI" {
+						continue
+					}
+					for ii, d := range w.D {
+						g := d * scaling
+						m := B1*w.States[StateM][ii] + (1-B1)*g
+						v := B2*w.States[StateV][ii] + (1-B2)*g*g
+						w.States[StateM][ii] = m
+						w.States[StateV][ii] = v
+						mhat := m / (1 - b1)
+						vhat := v / (1 - b2)
+						if vhat < 0 {
+							vhat = 0
+						}
+						w.X[ii] -= eta * mhat / (math.Sqrt(vhat) + 1e-8)
+					}
+				}
+				points = append(points, plotter.XY{X: float64(i), Y: float64(cost)})
+				if i >= 16*1024 || ((cutoff != -1) && cost < cutoff) {
+					break
+				}
 			}
-			scatter.GlyphStyle.Radius = vg.Length(1)
-			scatter.GlyphStyle.Shape = draw.CircleGlyph{}
-			p.Add(scatter)
 
-			err = p.Save(8*vg.Inch, 8*vg.Inch, fmt.Sprintf("inverse_epochs_%s.png", name))
-			if err != nil {
-				panic(err)
+			if graph {
+				p := plot.New()
+
+				p.Title.Text = "epochs vs cost"
+				p.X.Label.Text = "epochs"
+				p.Y.Label.Text = "cost"
+
+				scatter, err := plotter.NewScatter(points)
+				if err != nil {
+					panic(err)
+				}
+				scatter.GlyphStyle.Radius = vg.Length(1)
+				scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+				p.Add(scatter)
+
+				err = p.Save(8*vg.Inch, 8*vg.Inch, fmt.Sprintf("inverse_epochs_%s.png", name))
+				if err != nil {
+					panic(err)
+				}
 			}
 		}
-	}
 
-	A = NewMatrix[T](size, size)
-	for _, variance := range set.ByName["A"].X {
-		A.Data = append(A.Data, T(variance))
-	}
-	AI = NewMatrix[T](size, size)
-	for _, variance := range set.ByName["AI"].X {
-		AI.Data = append(AI.Data, T(variance))
-	}
-	u = NewMatrix[T](size, 1)
-	for _, a := range avg {
-		u.Data = append(u.Data, T(a))
+		A = NewMatrix[T](size, size)
+		for _, variance := range set.ByName["A"].X {
+			A.Data = append(A.Data, T(variance))
+		}
+		AI = NewMatrix[T](size, size)
+		for _, variance := range set.ByName["AI"].X {
+			AI.Data = append(AI.Data, T(variance))
+		}
+		u = NewMatrix[T](size, 1)
+		for _, a := range avg {
+			u.Data = append(u.Data, T(a))
+		}
+	case [][]float32:
+		set := tf32.NewSet()
+		set.Add("A", size, size)
+		set.Add("AI", size, size)
+
+		for i := range set.Weights {
+			w := set.Weights[i]
+			if strings.HasPrefix(w.N, "b") {
+				w.X = w.X[:cap(w.X)]
+				w.States = make([][]float32, StateTotal)
+				for ii := range w.States {
+					w.States[ii] = make([]float32, len(w.X))
+				}
+				continue
+			}
+			factor := math.Sqrt(2.0 / float64(w.S[0]))
+			for range cap(w.X) {
+				w.X = append(w.X, float32(rng.NormFloat64()*factor))
+			}
+			w.States = make([][]float32, StateTotal)
+			for ii := range w.States {
+				w.States[ii] = make([]float32, len(w.X))
+			}
+		}
+
+		others := tf32.NewSet()
+		others.Add("E", size, size)
+		others.Add("I", size, size)
+		E := others.ByName["E"]
+		for i := range cov {
+			for ii := range cov[i] {
+				E.X = append(E.X, float32(cov[i][ii]))
+			}
+		}
+		I := others.ByName["I"]
+		for i := range size {
+			for ii := range size {
+				if i == ii {
+					I.X = append(I.X, 1)
+				} else {
+					I.X = append(I.X, 0)
+				}
+			}
+		}
+
+		{
+			loss := tf32.Sum(tf32.Quadratic(others.Get("E"), tf32.Mul(set.Get("A"), set.Get("A"))))
+
+			points, i := make(plotter.XYs, 0, 8), 0
+			for {
+				pow := func(x float64) float64 {
+					y := math.Pow(x, float64(i+1))
+					if math.IsNaN(y) || math.IsInf(y, 0) {
+						return 0
+					}
+					return y
+				}
+
+				set.Zero()
+				others.Zero()
+				cost := tf32.Gradient(loss).X[0]
+				if math.IsNaN(float64(cost)) || math.IsInf(float64(cost), 0) {
+					fmt.Println(i, cost)
+					break
+				}
+
+				norm := 0.0
+				for _, p := range set.Weights {
+					for _, d := range p.D {
+						norm += float64(d * d)
+					}
+				}
+				norm = math.Sqrt(norm)
+				b1, b2 := pow(B1), pow(B2)
+				scaling := 1.0
+				if norm > 1 {
+					scaling = 1 / norm
+				}
+				for _, w := range set.Weights {
+					if w.N != "A" {
+						continue
+					}
+					for ii, d := range w.D {
+						g := d * float32(scaling)
+						m := B1*w.States[StateM][ii] + (1-B1)*g
+						v := B2*w.States[StateV][ii] + (1-B2)*g*g
+						w.States[StateM][ii] = m
+						w.States[StateV][ii] = v
+						mhat := m / (1 - float32(b1))
+						vhat := v / (1 - float32(b2))
+						if vhat < 0 {
+							vhat = 0
+						}
+						w.X[ii] -= Eta * mhat / (float32(math.Sqrt(float64(vhat))) + 1e-8)
+					}
+				}
+				points = append(points, plotter.XY{X: float64(i), Y: float64(cost)})
+				i++
+				if i >= 1024 || ((cutoff != -1) && float64(cost) < cutoff) {
+					break
+				}
+			}
+
+			if graph {
+				p := plot.New()
+
+				p.Title.Text = "epochs vs cost"
+				p.X.Label.Text = "epochs"
+				p.Y.Label.Text = "cost"
+
+				scatter, err := plotter.NewScatter(points)
+				if err != nil {
+					panic(err)
+				}
+				scatter.GlyphStyle.Radius = vg.Length(1)
+				scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+				p.Add(scatter)
+
+				err = p.Save(8*vg.Inch, 8*vg.Inch, fmt.Sprintf("epochs_%s.png", name))
+				if err != nil {
+					panic(err)
+				}
+			}
+		}
+
+		if invert {
+			loss := tf32.Sum(tf32.Quadratic(others.Get("I"), tf32.Mul(set.Get("A"), set.Get("AI"))))
+
+			points, i := make(plotter.XYs, 0, 8), 0
+			for {
+				pow := func(x float64) float64 {
+					y := math.Pow(x, float64(i+1))
+					if math.IsNaN(y) || math.IsInf(y, 0) {
+						return 0
+					}
+					return y
+				}
+
+				set.Zero()
+				others.Zero()
+				cost := tf32.Gradient(loss).X[0]
+				if math.IsNaN(float64(cost)) || math.IsInf(float64(cost), 0) {
+					fmt.Println(i, cost)
+					break
+				}
+
+				norm := 0.0
+				for _, p := range set.Weights {
+					for _, d := range p.D {
+						norm += float64(d * d)
+					}
+				}
+				norm = math.Sqrt(norm)
+				b1, b2 := pow(B1), pow(B2)
+				scaling := 1.0
+				if norm > 1 {
+					scaling = 1 / norm
+				}
+				for _, w := range set.Weights {
+					if w.N != "AI" {
+						continue
+					}
+					for ii, d := range w.D {
+						g := d * float32(scaling)
+						m := B1*w.States[StateM][ii] + (1-B1)*g
+						v := B2*w.States[StateV][ii] + (1-B2)*g*g
+						w.States[StateM][ii] = m
+						w.States[StateV][ii] = v
+						mhat := m / (1 - float32(b1))
+						vhat := v / (1 - float32(b2))
+						if vhat < 0 {
+							vhat = 0
+						}
+						w.X[ii] -= float32(eta) * mhat / (float32(math.Sqrt(float64(vhat))) + 1e-8)
+					}
+				}
+				points = append(points, plotter.XY{X: float64(i), Y: float64(cost)})
+				if i >= 16*1024 || ((cutoff != -1) && float64(cost) < cutoff) {
+					break
+				}
+			}
+
+			if graph {
+				p := plot.New()
+
+				p.Title.Text = "epochs vs cost"
+				p.X.Label.Text = "epochs"
+				p.Y.Label.Text = "cost"
+
+				scatter, err := plotter.NewScatter(points)
+				if err != nil {
+					panic(err)
+				}
+				scatter.GlyphStyle.Radius = vg.Length(1)
+				scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+				p.Add(scatter)
+
+				err = p.Save(8*vg.Inch, 8*vg.Inch, fmt.Sprintf("inverse_epochs_%s.png", name))
+				if err != nil {
+					panic(err)
+				}
+			}
+		}
+
+		A = NewMatrix[T](size, size)
+		for _, variance := range set.ByName["A"].X {
+			A.Data = append(A.Data, T(variance))
+		}
+		AI = NewMatrix[T](size, size)
+		for _, variance := range set.ByName["AI"].X {
+			AI.Data = append(AI.Data, T(variance))
+		}
+		u = NewMatrix[T](size, 1)
+		for _, a := range avg {
+			u.Data = append(u.Data, T(a))
+		}
 	}
 	return A, AI, u
 }
@@ -971,8 +1191,8 @@ func main() {
 
 	rng := rand.New(rand.NewSource(1))
 	type RNN struct {
-		Layer   Matrix[float64]
-		Bias    Matrix[float64]
+		Layer   Matrix[float32]
+		Bias    Matrix[float32]
 		Fitness float64
 	}
 
@@ -1006,10 +1226,10 @@ func main() {
 		}
 	}
 
-	state := make([][]float64, 8)
+	state := make([][]float32, 8)
 	for i := range state {
 		for range width {
-			state[i] = append(state[i], rng.NormFloat64())
+			state[i] = append(state[i], float32(rng.NormFloat64()))
 		}
 	}
 	pop := make([]RNN, population)
@@ -1022,9 +1242,9 @@ func main() {
 		rng.Shuffle(width, func(i, j int) {
 			translate[i], translate[j] = translate[j], translate[i]
 		})
-		var a, u [models]Matrix[float64]
+		var a, u [models]Matrix[float32]
 		for ii := range models {
-			s := make([][]float64, 8)
+			s := make([][]float32, 8)
 			for iii := range state {
 				for iv, t := range translate {
 					if t == ii {
@@ -1032,19 +1252,19 @@ func main() {
 					}
 				}
 			}
-			a[ii], _, u[ii] = NewMultiVariateGaussian[float64](.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("rnn_%d", i), 8, s)
+			a[ii], _, u[ii] = NewMultiVariateGaussian(.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("rnn_%d", i), 8, s)
 		}
 		born := pop
 		if i > 0 {
 			born = pop[8:]
 		}
 		for ii := range born {
-			vector := NewMatrix[float64](width, 1)
-			vector.Data = make([]float64, width)
+			vector := NewMatrix[float32](width, 1)
+			vector.Data = make([]float32, width)
 			for iii := range a {
-				g := NewMatrix[float64](a[iii].Cols, 1)
+				g := NewMatrix[float32](a[iii].Cols, 1)
 				for range a[iii].Cols {
-					g.Data = append(g.Data, rng.NormFloat64())
+					g.Data = append(g.Data, float32(rng.NormFloat64()))
 				}
 				vec, index := a[iii].MulT(g).Add(u[iii]), 0
 				for iv, t := range translate {
@@ -1057,19 +1277,19 @@ func main() {
 			born[ii].Layer = NewMatrix(size, size, vector.Data[:size*size]...)
 			born[ii].Bias = NewMatrix(size, 1, vector.Data[size*size:width]...)
 			born[ii].Fitness = 0.0
-			input := NewMatrix[float64](size, 1)
-			input.Data = make([]float64, size)
+			input := NewMatrix[float32](size, 1)
+			input.Data = make([]float32, size)
 			for _, symbol := range []rune(string(data))[:1024] {
 				input = born[ii].Layer.MulT(input).Add(born[ii].Bias).Sigmoid()
 				target := forward[symbol]
 				for iv := range len(forward) {
-					var diff float64
+					var diff float32
 					if iv == int(target) {
 						diff = input.Data[iv] - 1
 					} else {
 						diff = input.Data[iv] - 0
 					}
-					born[ii].Fitness += diff * diff
+					born[ii].Fitness += float64(diff * diff)
 				}
 			}
 		}
