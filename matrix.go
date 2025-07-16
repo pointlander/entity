@@ -135,7 +135,7 @@ func (m Matrix) Softmax(T float64) Matrix {
 }
 
 // Sigmoid computes the sigmoid of a matrix
-func Sigmoid(m Matrix) Matrix {
+func (m Matrix) Sigmoid() Matrix {
 	o := Matrix{
 		Cols: m.Cols,
 		Rows: m.Rows,

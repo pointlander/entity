@@ -1057,7 +1057,7 @@ func main() {
 			input := NewMatrix(size, 1)
 			input.Data = make([]float64, size)
 			for _, symbol := range []rune(string(data))[:1024] {
-				input = Sigmoid(born[ii].Layer.MulT(input).Add(born[ii].Bias))
+				input = born[ii].Layer.MulT(input).Add(born[ii].Bias).Sigmoid()
 				target := forward[symbol]
 				for iv := range len(forward) {
 					var diff float64
