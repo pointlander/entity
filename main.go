@@ -146,7 +146,7 @@ func Load() []Fisher {
 }
 
 // NewMultiVariateGaussian
-func NewMultiVariateGaussian(cutoff, eta float64, graph, invert bool, rng *rand.Rand, name string, size int, vectors [][]float64) (A, AI Matrix, u Matrix) {
+func NewMultiVariateGaussian[T Float](cutoff, eta float64, graph, invert bool, rng *rand.Rand, name string, size int, vectors [][]float64) (A, AI Matrix[T], u Matrix[T]) {
 	if log {
 		fmt.Println(name)
 	}
@@ -394,15 +394,18 @@ func NewMultiVariateGaussian(cutoff, eta float64, graph, invert bool, rng *rand.
 		}
 	}
 
-	A = NewMatrix(size, size)
+	A = NewMatrix[T](size, size)
 	for _, variance := range set.ByName["A"].X {
-		A.Data = append(A.Data, variance)
+		A.Data = append(A.Data, T(variance))
 	}
-	AI = NewMatrix(size, size)
+	AI = NewMatrix[T](size, size)
 	for _, variance := range set.ByName["AI"].X {
-		AI.Data = append(AI.Data, variance)
+		AI.Data = append(AI.Data, T(variance))
 	}
-	u = NewMatrix(size, 1, avg...)
+	u = NewMatrix[T](size, 1)
+	for _, a := range avg {
+		u.Data = append(u.Data, T(a))
+	}
 	return A, AI, u
 }
 
@@ -432,10 +435,10 @@ func IrisModel() {
 		}
 	}
 	rng := rand.New(rand.NewSource(1))
-	var A, AI, u [3]Matrix
+	var A, AI, u [3]Matrix[float64]
 	cal := [][]float64{}
 	for i := range vectors {
-		A[i], AI[i], u[i] = NewMultiVariateGaussian(-1, Eta, true, true, rng, Inverse[i], 4, vectors[i])
+		A[i], AI[i], u[i] = NewMultiVariateGaussian[float64](-1, Eta, true, true, rng, Inverse[i], 4, vectors[i])
 		diff := A[i].MulT(AI[i])
 		c := make([]float64, 5)
 		for ii, value := range diff.Data {
@@ -457,7 +460,7 @@ func IrisModel() {
 			rng := rand.New(rand.NewSource(seed))
 			var histogram [150][3]uint64
 			for i := range iris {
-				vector := NewMatrix(4, 1)
+				vector := NewMatrix[float64](4, 1)
 				vector.Data = append(vector.Data, iris[i].Measures...)
 				min, index := math.MaxFloat64, 0
 				for ii := range AI {
@@ -533,7 +536,7 @@ func IrisModel() {
 			min, index := math.MaxFloat64, 0
 			for range 16 * 33 {
 				for ii := range A {
-					g := NewMatrix(4, 1)
+					g := NewMatrix[float64](4, 1)
 					for iii := range 4 {
 						_ = iii
 						g.Data = append(g.Data, rng.NormFloat64())
@@ -623,7 +626,7 @@ func Text() {
 	}
 	length, datum := len(forward), []rune(string(data))
 
-	A, AI, u := make([]Matrix, length), make([]Matrix, length), make([]Matrix, length)
+	A, AI, u := make([]Matrix[float64], length), make([]Matrix[float64], length), make([]Matrix[float64], length)
 	if *FlagBuild {
 		out, err := os.Create("model.bin")
 		if err != nil {
@@ -644,7 +647,7 @@ func Text() {
 				}
 				index++
 			}
-			A[i], AI[i], u[i] = NewMultiVariateGaussian(-1.0, 1.0e-1, true, true, rng, fmt.Sprintf("%d_text", i), length, vectors)
+			A[i], AI[i], u[i] = NewMultiVariateGaussian[float64](-1.0, 1.0e-1, true, true, rng, fmt.Sprintf("%d_text", i), length, vectors)
 
 			buffer64 := make([]byte, 8)
 			for _, parameter := range u[i].Data {
@@ -697,7 +700,7 @@ func Text() {
 	defer input.Close()
 
 	for i := range length {
-		u[i] = NewMatrix(length, 1)
+		u[i] = NewMatrix[float64](length, 1)
 		buffer64 := make([]byte, 8)
 		for range u[i].Rows {
 			for range u[i].Cols {
@@ -718,7 +721,7 @@ func Text() {
 				u[i].Data = append(u[i].Data, math.Float64frombits(value))
 			}
 		}
-		A[i] = NewMatrix(length, length)
+		A[i] = NewMatrix[float64](length, length)
 		for range A[i].Rows {
 			for range A[i].Cols {
 				n, err := input.Read(buffer64)
@@ -738,7 +741,7 @@ func Text() {
 				A[i].Data = append(A[i].Data, math.Float64frombits(value))
 			}
 		}
-		AI[i] = NewMatrix(length, length)
+		AI[i] = NewMatrix[float64](length, length)
 		for range AI[i].Rows {
 			for range AI[i].Cols {
 				n, err := input.Read(buffer64)
@@ -844,21 +847,21 @@ func Image() {
 		}
 	}
 	type Entity struct {
-		Vector  [8]Matrix
+		Vector  [8]Matrix[float64]
 		Fitness float64
 	}
 	const iterations = 256
 	for i := 0; i < iterations; i++ {
 		graph := i == 0 || i == iterations-1
-		var a, u [8]Matrix
+		var a, u [8]Matrix[float64]
 		for ii := range a {
-			a[ii], _, u[ii] = NewMultiVariateGaussian(.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("entropy_%d", i), 64, state[ii])
+			a[ii], _, u[ii] = NewMultiVariateGaussian[float64](.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("entropy_%d", i), 64, state[ii])
 		}
 		pop := make([]Entity, 256)
 		for ii := range pop {
 			img := image.NewGray(image.Rect(0, 0, 8, 8))
 			for v := range a {
-				g := NewMatrix(64, 1)
+				g := NewMatrix[float64](64, 1)
 				for range 8 {
 					g.Data = append(g.Data, rng.NormFloat64())
 				}
@@ -968,8 +971,8 @@ func main() {
 
 	rng := rand.New(rand.NewSource(1))
 	type RNN struct {
-		Layer   Matrix
-		Bias    Matrix
+		Layer   Matrix[float64]
+		Bias    Matrix[float64]
 		Fitness float64
 	}
 
@@ -1019,7 +1022,7 @@ func main() {
 		rng.Shuffle(width, func(i, j int) {
 			translate[i], translate[j] = translate[j], translate[i]
 		})
-		var a, u [models]Matrix
+		var a, u [models]Matrix[float64]
 		for ii := range models {
 			s := make([][]float64, 8)
 			for iii := range state {
@@ -1029,17 +1032,17 @@ func main() {
 					}
 				}
 			}
-			a[ii], _, u[ii] = NewMultiVariateGaussian(.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("rnn_%d", i), 8, s)
+			a[ii], _, u[ii] = NewMultiVariateGaussian[float64](.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("rnn_%d", i), 8, s)
 		}
 		born := pop
 		if i > 0 {
 			born = pop[8:]
 		}
 		for ii := range born {
-			vector := NewMatrix(width, 1)
+			vector := NewMatrix[float64](width, 1)
 			vector.Data = make([]float64, width)
 			for iii := range a {
-				g := NewMatrix(a[iii].Cols, 1)
+				g := NewMatrix[float64](a[iii].Cols, 1)
 				for range a[iii].Cols {
 					g.Data = append(g.Data, rng.NormFloat64())
 				}
@@ -1054,7 +1057,7 @@ func main() {
 			born[ii].Layer = NewMatrix(size, size, vector.Data[:size*size]...)
 			born[ii].Bias = NewMatrix(size, 1, vector.Data[size*size:width]...)
 			born[ii].Fitness = 0.0
-			input := NewMatrix(size, 1)
+			input := NewMatrix[float64](size, 1)
 			input.Data = make([]float64, size)
 			for _, symbol := range []rune(string(data))[:1024] {
 				input = born[ii].Layer.MulT(input).Add(born[ii].Bias).Sigmoid()
