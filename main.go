@@ -1393,31 +1393,57 @@ func main() {
 	}
 
 	{
-		output := []rune{}
 		prompt := []rune("What color is the sky?")
 		context := len(prompt)
 		input := NewMatrix[float32](size, 1)
 		input.Data = make([]float32, size)
 		last := -1
-		for iii := range 256 {
-			if iii < context {
-				for iv := range input.Data[:len(forward)] {
-					input.Data[iv] = 0
-				}
-				if last >= 0 {
-					input.Data[last] = 1
-				}
-			}
-			input = layer.MulT(input).Add(bias).Sigmoid()
-			max, symbol := float32(0.0), 0
-			for iv := range len(forward) {
-				if input.Data[iv] > max {
-					max, symbol = input.Data[iv], iv
-				}
-			}
-			last = int(uint(symbol))
-			output = append(output, reverse[byte(symbol)])
+		type Result struct {
+			Result string
+			Cost   float32
 		}
-		fmt.Println("'" + string(output) + "'")
+		results := []Result{}
+		for range 256 {
+			output := []rune{}
+			result := Result{}
+			for iii := range 256 {
+				if iii < context {
+					for iv := range input.Data[:len(forward)] {
+						input.Data[iv] = 0
+					}
+					if last >= 0 {
+						input.Data[last] = 1
+					}
+				}
+				input = layer.MulT(input).Add(bias).Sigmoid()
+				dist := make([]float32, len(input.Data[:len(forward)]))
+				copy(dist, input.Data[:len(forward)])
+				sum := float32(0.0)
+				for _, value := range dist {
+					sum += value
+				}
+				for iv := range dist {
+					dist[iv] /= sum
+				}
+				total, selected, symbol := float32(0.0), rng.Float32(), 0
+				for iv := range len(forward) {
+					total += dist[iv]
+					if selected < total {
+						symbol = iv
+						break
+					}
+				}
+				result.Cost += dist[symbol]
+				last = int(uint(symbol))
+				output = append(output, reverse[byte(symbol)])
+			}
+			result.Result = string(output)
+			results = append(results, result)
+		}
+		sort.Slice(results, func(i, j int) bool {
+			return results[i].Cost > results[j].Cost
+		})
+		fmt.Println(results[0].Cost)
+		fmt.Println("'" + results[0].Result + "'")
 	}
 }
