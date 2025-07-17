@@ -1354,7 +1354,7 @@ func main() {
 		})
 		for ii := range state {
 			copy(state[ii], pop[ii].Layer.Data)
-			copy(state[ii][16:], pop[ii].Bias.Data)
+			copy(state[ii][size*size:], pop[ii].Bias.Data)
 		}
 		fmt.Println(pop[0].Fitness)
 	}
