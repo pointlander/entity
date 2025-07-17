@@ -1243,7 +1243,9 @@ func main() {
 			translate[i], translate[j] = translate[j], translate[i]
 		})
 		var a, u [models]Matrix[float32]
-		for ii := range models {
+		done := make(chan bool, 8)
+		process := func(ii int, seed int64) {
+			rng := rand.New(rand.NewSource(seed))
 			s := make([][]float32, 8)
 			for iii := range state {
 				for iv, t := range translate {
@@ -1253,12 +1255,32 @@ func main() {
 				}
 			}
 			a[ii], _, u[ii] = NewMultiVariateGaussian(.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("rnn_%d", i), 8, s)
+			done <- true
 		}
+		ii, flight, cpus := 0, 0, runtime.NumCPU()
+		for ii < models && flight < cpus {
+			go process(ii, rng.Int63())
+			flight++
+			ii++
+		}
+		for ii < models {
+			<-done
+			flight--
+
+			go process(ii, rng.Int63())
+			flight++
+			ii++
+		}
+		for range flight {
+			<-done
+		}
+
 		born := pop
 		if i > 0 {
 			born = pop[8:]
 		}
-		for ii := range born {
+		learn := func(ii int, seed int64) {
+			rng := rand.New(rand.NewSource(seed))
 			vector := NewMatrix[float32](width, 1)
 			vector.Data = make([]float32, width)
 			for iii := range a {
@@ -1292,7 +1314,26 @@ func main() {
 					born[ii].Fitness += float64(diff * diff)
 				}
 			}
+			done <- true
 		}
+		ii, flight, cpus = 0, 0, runtime.NumCPU()
+		for ii < len(born) && flight < cpus {
+			go learn(ii, rng.Int63())
+			flight++
+			ii++
+		}
+		for ii < len(born) {
+			<-done
+			flight--
+
+			go learn(ii, rng.Int63())
+			flight++
+			ii++
+		}
+		for range flight {
+			<-done
+		}
+
 		sort.Slice(pop, func(i, j int) bool {
 			return pop[i].Fitness < pop[j].Fitness
 		})
