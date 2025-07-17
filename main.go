@@ -1358,4 +1358,12 @@ func main() {
 		}
 		fmt.Println(pop[0].Fitness)
 	}
+
+	output, err := os.Create("model.bin")
+	if err != nil {
+		panic(err)
+	}
+	defer output.Close()
+	pop[0].Layer.Write(output)
+	pop[0].Bias.Write(output)
 }

@@ -5,8 +5,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"math"
+	"os"
 
 	"github.com/pointlander/entity/vector"
 )
@@ -196,6 +199,93 @@ func (m Matrix[T]) T() Matrix[T] {
 		}
 	}
 	return o
+}
+
+// Write writes the matrix to a file
+func (m Matrix[T]) Write(output *os.File) error {
+	switch data := any(m.Data).(type) {
+	case []float64:
+		buffer64 := make([]byte, 8)
+		for _, parameter := range data {
+			bits := math.Float64bits(parameter)
+			for i := range buffer64 {
+				buffer64[i] = byte((bits >> (8 * i)) & 0xFF)
+			}
+			n, err := output.Write(buffer64)
+			if err != nil {
+				return err
+			}
+			if n != len(buffer64) {
+				return errors.New("8 bytes should be been written")
+			}
+		}
+	case []float32:
+		buffer32 := make([]byte, 4)
+		for _, parameter := range data {
+			bits := math.Float32bits(parameter)
+			for i := range buffer32 {
+				buffer32[i] = byte((bits >> (8 * i)) & 0xFF)
+			}
+			n, err := output.Write(buffer32)
+			if err != nil {
+				return err
+			}
+			if n != len(buffer32) {
+				return errors.New("8 bytes should be been written")
+			}
+		}
+	}
+	return nil
+}
+
+// Read reads the matrix from a file
+func (m Matrix[T]) Read(input *os.File) error {
+	switch any(m.Data).(type) {
+	case []float64:
+		buffer64 := make([]byte, 8)
+		for range m.Rows {
+			for range m.Cols {
+				n, err := input.Read(buffer64)
+				if err == io.EOF {
+					return err
+				} else if err != nil {
+					return err
+				}
+				if n != len(buffer64) {
+					return fmt.Errorf("not all bytes read: %d", n)
+				}
+				value := uint64(0)
+				for k := 0; k < 8; k++ {
+					value <<= 8
+					value |= uint64(buffer64[7-k])
+				}
+				m.Data = append(m.Data, T(math.Float64frombits(value)))
+			}
+		}
+	case []float32:
+		buffer32 := make([]byte, 4)
+		for range m.Rows {
+			for range m.Cols {
+				n, err := input.Read(buffer32)
+				if err == io.EOF {
+					return err
+				} else if err != nil {
+					return err
+				}
+				if n != len(buffer32) {
+					return fmt.Errorf("not all bytes read: %d", n)
+				}
+				value := uint32(0)
+				for k := 0; k < 4; k++ {
+					value <<= 8
+					value |= uint32(buffer32[3-k])
+				}
+				m.Data = append(m.Data, T(math.Float32frombits(value)))
+			}
+		}
+
+	}
+	return nil
 }
 
 func dot[T Float](x, y []T) (z T) {
