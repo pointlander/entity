@@ -1278,6 +1278,7 @@ func main() {
 
 		start := rng.Intn(len(text) - 1024)
 		end := start + 1024
+		context := rng.Intn(128-16) + 16
 
 		born := pop
 		if i > 0 {
@@ -1305,7 +1306,16 @@ func main() {
 			born[ii].Fitness = 0.0
 			input := NewMatrix[float32](size, 1)
 			input.Data = make([]float32, size)
-			for _, symbol := range text[start:end] {
+			last := -1
+			for iii, symbol := range text[start:end] {
+				if iii < context {
+					for iv := range input.Data {
+						input.Data[iv] = 0
+					}
+					if last >= 0 {
+						input.Data[last] = 1
+					}
+				}
 				input = born[ii].Layer.MulT(input).Add(born[ii].Bias).Sigmoid()
 				target := forward[symbol]
 				for iv := range len(forward) {
@@ -1317,6 +1327,7 @@ func main() {
 					}
 					born[ii].Fitness += float64(diff * diff)
 				}
+				last = int(uint(target))
 			}
 			done <- true
 		}
