@@ -1309,7 +1309,7 @@ func main() {
 			last := -1
 			for iii, symbol := range text[start:end] {
 				if iii < context {
-					for iv := range input.Data {
+					for iv := range input.Data[:len(forward)] {
 						input.Data[iv] = 0
 					}
 					if last >= 0 {
