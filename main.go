@@ -1233,6 +1233,7 @@ func main() {
 		}
 	}
 	pop := make([]RNN, population)
+	text := []rune(string(data))
 	for i := 0; i < iterations; i++ {
 		graph := false //i == 0 || i == iterations-1
 		translate := make([]int, width)
@@ -1275,6 +1276,9 @@ func main() {
 			<-done
 		}
 
+		start := rng.Intn(len(text) - 1024)
+		end := start + 1024
+
 		born := pop
 		if i > 0 {
 			born = pop[8:]
@@ -1301,7 +1305,7 @@ func main() {
 			born[ii].Fitness = 0.0
 			input := NewMatrix[float32](size, 1)
 			input.Data = make([]float32, size)
-			for _, symbol := range []rune(string(data))[:1024] {
+			for _, symbol := range text[start:end] {
 				input = born[ii].Layer.MulT(input).Add(born[ii].Bias).Sigmoid()
 				target := forward[symbol]
 				for iv := range len(forward) {
