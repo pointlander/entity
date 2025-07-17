@@ -239,7 +239,7 @@ func (m Matrix[T]) Write(output *os.File) error {
 }
 
 // Read reads the matrix from a file
-func (m Matrix[T]) Read(input *os.File) error {
+func (m *Matrix[T]) Read(input *os.File) error {
 	switch any(m.Data).(type) {
 	case []float64:
 		buffer64 := make([]byte, 8)
