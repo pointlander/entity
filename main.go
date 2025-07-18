@@ -1284,7 +1284,6 @@ func main() {
 			learn := func(ii int, seed int64) {
 				start := rng.Intn(len(text) - 1024)
 				end := start + 1024
-				context := rng.Intn(128-16) + 16
 
 				rng := rand.New(rand.NewSource(seed))
 				vector := NewMatrix[float32](width, 1)
@@ -1307,16 +1306,7 @@ func main() {
 				born[ii].Fitness = 0.0
 				input := NewMatrix[float32](size, 1)
 				input.Data = make([]float32, size)
-				last := -1
-				for iii, symbol := range text[start:end] {
-					if iii < context {
-						for iv := range input.Data[:len(forward)] {
-							input.Data[iv] = 0
-						}
-						if last >= 0 {
-							input.Data[last] = 1
-						}
-					}
+				for _, symbol := range text[start:end] {
 					input = born[ii].Layer.MulT(input).Add(born[ii].Bias).Sigmoid()
 					target := forward[symbol]
 					for iv := range len(forward) {
@@ -1328,7 +1318,10 @@ func main() {
 						}
 						born[ii].Fitness += float64(diff * diff)
 					}
-					last = int(uint(target))
+					for iv := range input.Data[:len(forward)] {
+						input.Data[iv] = 0
+					}
+					input.Data[target] = 1
 				}
 				done <- true
 			}
@@ -1437,6 +1430,10 @@ func main() {
 				}
 				result.Cost += dist[symbol]
 				output = append(output, reverse[byte(symbol)])
+				for iv := range input.Data[:len(forward)] {
+					input.Data[iv] = 0
+				}
+				input.Data[symbol] = 1
 			}
 			result.Result = string(output)
 			results = append(results, result)
