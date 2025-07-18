@@ -1394,7 +1394,6 @@ func main() {
 
 	{
 		prompt := []rune("What color is the sky?")
-		context := len(prompt)
 		input := NewMatrix[float32](size, 1)
 		input.Data = make([]float32, size)
 		last := -1
@@ -1406,15 +1405,18 @@ func main() {
 		for range 256 {
 			output := []rune{}
 			result := Result{}
-			for iii := range 256 {
-				if iii < context {
-					for iv := range input.Data[:len(forward)] {
-						input.Data[iv] = 0
-					}
-					if last >= 0 {
-						input.Data[last] = 1
-					}
+			for _, s := range prompt {
+				for iv := range input.Data[:len(forward)] {
+					input.Data[iv] = 0
 				}
+				if last >= 0 {
+					input.Data[last] = 1
+				}
+				input = layer.MulT(input).Add(bias).Sigmoid()
+				last = int(uint(forward[s]))
+				output = append(output, reverse[byte(last)])
+			}
+			for range 256 {
 				input = layer.MulT(input).Add(bias).Sigmoid()
 				dist := make([]float32, len(input.Data[:len(forward)]))
 				copy(dist, input.Data[:len(forward)])
@@ -1434,7 +1436,6 @@ func main() {
 					}
 				}
 				result.Cost += dist[symbol]
-				last = int(uint(symbol))
 				output = append(output, reverse[byte(symbol)])
 			}
 			result.Result = string(output)
