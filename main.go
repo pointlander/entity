@@ -1277,15 +1277,15 @@ func main() {
 				<-done
 			}
 
-			start := rng.Intn(len(text) - 1024)
-			end := start + 1024
-			context := rng.Intn(128-16) + 16
-
 			born := pop
 			if i > 0 {
 				born = pop[8:]
 			}
 			learn := func(ii int, seed int64) {
+				start := rng.Intn(len(text) - 1024)
+				end := start + 1024
+				context := rng.Intn(128-16) + 16
+
 				rng := rand.New(rand.NewSource(seed))
 				vector := NewMatrix[float32](width, 1)
 				vector.Data = make([]float32, width)
