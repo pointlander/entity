@@ -152,6 +152,8 @@ var (
 	FlagImage = flag.Bool("image", false, "the image model")
 	// FlagRNN the rnn model
 	FlagRNN = flag.Bool("rnn", false, "the rnn model")
+	// FlagFactor factor a number
+	FlagFactor = flag.Bool("factor", false, "factor a number")
 	// FlagBuild build the model
 	FlagBuild = flag.Bool("build", false, "build the model")
 )
@@ -159,29 +161,8 @@ var (
 //go:embed books/*
 var Data embed.FS
 
-func main() {
-	flag.Parse()
-
-	if *FlagIris {
-		IrisModel()
-		return
-	}
-
-	if *FlagText {
-		Text()
-		return
-	}
-
-	if *FlagImage {
-		Image()
-		return
-	}
-
-	if *FlagRNN {
-		RNN()
-		return
-	}
-
+// Factor factors a number
+func Factor() {
 	rng := rand.New(rand.NewSource(1))
 	type Number struct {
 		Number  Matrix[float32]
@@ -340,5 +321,34 @@ func main() {
 			}
 			fmt.Println(pop[0].Fitness)
 		}
+	}
+}
+
+func main() {
+	flag.Parse()
+
+	if *FlagIris {
+		IrisModel()
+		return
+	}
+
+	if *FlagText {
+		Text()
+		return
+	}
+
+	if *FlagImage {
+		Image()
+		return
+	}
+
+	if *FlagRNN {
+		RNN()
+		return
+	}
+
+	if *FlagFactor {
+		Factor()
+		return
 	}
 }
