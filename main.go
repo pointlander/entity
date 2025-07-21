@@ -12,6 +12,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"math/rand"
 	"os"
@@ -353,88 +354,139 @@ func main() {
 	}
 
 	rng := rand.New(rand.NewSource(1))
-	fitness := func(board []float32) int {
-		fitness := 0
-		for i := range 8 {
-			for ii := range 8 {
-				for iii := ii + 1; iii < 8; iii++ {
-					if board[i*8+iii] > 0 {
-						fitness++
-						break
+	fitness := func(g []float32) float64 {
+		fitness := 0.0
+		boards := make([][]float64, 0, 8)
+		for vi := 0; vi < 8; vi++ {
+			board := make([]float64, 8*8)
+			offset := vi * 8
+			x, y := uint(0), uint(0)
+			for xx := range 3 {
+				x <<= 1
+				if g[offset*2*3+xx] > 0 {
+					x |= 1
+				}
+			}
+			for yy := range 3 {
+				y <<= 1
+				if g[offset*2*3+3+yy] > 0 {
+					y |= 1
+				}
+			}
+			board[y*8+x] = 1
+			for v := 1; v < 8; v++ {
+				rx, ry := uint(0), uint(0)
+				for xx := range 3 {
+					rx <<= 1
+					if g[offset*2*3+3*v+xx] > 0 {
+						rx |= 1
 					}
 				}
-				for iii := ii - 1; iii >= 0; iii-- {
-					if board[i*8+iii] > 0 {
-						fitness++
-						break
+				for yy := range 3 {
+					ry <<= 1
+					if g[offset*2*3+3+3*v+yy] > 0 {
+						ry |= 1
 					}
 				}
-				for iii := i + 1; iii < 8; iii++ {
-					if board[iii*8+ii] > 0 {
-						fitness++
-						break
+				board[((y+ry)%8)*8+((x+rx)%8)] = 1
+			}
+			for i := range 8 {
+				for ii := range 8 {
+					for iii := ii + 1; iii < 8; iii++ {
+						if board[i*8+iii] > 0 {
+							fitness++
+							break
+						}
 					}
-				}
-				for iii := i - 1; iii >= 0; iii-- {
-					if board[iii*8+ii] > 0 {
-						fitness++
-						break
+					for iii := ii - 1; iii >= 0; iii-- {
+						if board[i*8+iii] > 0 {
+							fitness++
+							break
+						}
 					}
-				}
-				x, y := ii, i
-				for {
-					x++
-					y++
-					if x > 7 || y > 7 {
-						break
+					for iii := i + 1; iii < 8; iii++ {
+						if board[iii*8+ii] > 0 {
+							fitness++
+							break
+						}
 					}
-					if board[y*8+x] > 0 {
-						fitness++
-						break
+					for iii := i - 1; iii >= 0; iii-- {
+						if board[iii*8+ii] > 0 {
+							fitness++
+							break
+						}
 					}
-				}
-				x, y = ii, i
-				for {
-					x++
-					y--
-					if x > 7 || y < 0 {
-						break
+					x, y := ii, i
+					for {
+						x++
+						y++
+						if x > 7 || y > 7 {
+							break
+						}
+						if board[y*8+x] > 0 {
+							fitness++
+							break
+						}
 					}
-					if board[y*8+x] > 0 {
-						fitness++
-						break
+					x, y = ii, i
+					for {
+						x++
+						y--
+						if x > 7 || y < 0 {
+							break
+						}
+						if board[y*8+x] > 0 {
+							fitness++
+							break
+						}
 					}
-				}
-				x, y = ii, i
-				for {
-					x--
-					y++
-					if x < 0 || y > 7 {
-						break
+					x, y = ii, i
+					for {
+						x--
+						y++
+						if x < 0 || y > 7 {
+							break
+						}
+						if board[y*8+x] > 0 {
+							fitness++
+							break
+						}
 					}
-					if board[y*8+x] > 0 {
-						fitness++
-						break
+					x, y = ii, i
+					for {
+						x--
+						y--
+						if x < 0 || y < 0 {
+							break
+						}
+						if board[y*8+x] > 0 {
+							fitness++
+							break
+						}
 					}
-				}
-				x, y = ii, i
-				for {
-					x--
-					y--
-					if x < 0 || y < 0 {
-						break
-					}
-					if board[y*8+x] > 0 {
-						fitness++
-						break
-					}
-				}
 
+				}
+			}
+			boards = append(boards, board)
+		}
+		board := make([]float64, 8*8)
+		sum := 0.0
+		for i := 0; i < 8*8; i++ {
+			for _, b := range boards {
+				board[i] += b[i]
+				sum += b[1]
 			}
 		}
-		return fitness
+		entropy := 0.0
+		for _, value := range board {
+			if value == 0 || sum == 0 {
+				continue
+			}
+			entropy += (value / sum) * math.Log2(value/sum)
+		}
+		return fitness * (-entropy + 1)
 	}
-	board := make([]float32, 8*8)
+	board := make([]float32, 8*8*3*2)
 	for i := range board {
 		board[i] = float32(rng.NormFloat64())
 	}
@@ -446,7 +498,7 @@ func main() {
 	}
 
 	const (
-		width      = 64
+		width      = 64 * 2 * 3
 		models     = width / 64
 		iterations = 1024
 		population = 1024
