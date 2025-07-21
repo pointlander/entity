@@ -388,7 +388,27 @@ func main() {
 						ry |= 1
 					}
 				}
+				which := 0
+				for board[((y+ry)%8)*8+((x+rx)%8)] == 1 {
+					if which == 0 {
+						ry++
+						which = 1
+					} else {
+						rx++
+						which = 0
+					}
+				}
 				board[((y+ry)%8)*8+((x+rx)%8)] = 1
+			}
+			sum := 0
+			for _, value := range board {
+				if value > 0 {
+					sum++
+				}
+			}
+			if sum != 8 {
+				fmt.Println(board)
+				panic("there should be 8")
 			}
 			for i := range 8 {
 				for ii := range 8 {
@@ -474,7 +494,7 @@ func main() {
 		for i := 0; i < 8*8; i++ {
 			for _, b := range boards {
 				board[i] += b[i]
-				sum += b[1]
+				sum += b[i]
 			}
 		}
 		entropy := 0.0
@@ -484,7 +504,7 @@ func main() {
 			}
 			entropy += (value / sum) * math.Log2(value/sum)
 		}
-		return fitness * (-entropy + 1)
+		return fitness * -entropy
 	}
 	board := make([]float32, 8*8*3*2)
 	for i := range board {
