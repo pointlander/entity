@@ -11,7 +11,9 @@ import (
 	"encoding/csv"
 	"flag"
 	"io"
+	"math/rand"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -156,6 +158,115 @@ var (
 
 //go:embed books/*
 var Data embed.FS
+
+const (
+	// MemorySize is the size of the working memory
+	MemorySize = 1024 * 1024
+	// CyclesLimit is the limit on cycles
+	CyclesLimit = 1024 * 1024
+)
+
+var (
+	// Genes are the genes
+	Genes = [...]rune{'+', '-', '>', '<', '.', '[', ']'}
+)
+
+// Program is a program
+// https://github.com/cvhariharan/goBrainFuck
+type Program []rune
+
+// Execute executes a program
+func (p Program) Execute(rng *rand.Rand, size int) *strings.Builder {
+	var (
+		memory [MemorySize]int
+		pc     int
+		dc     int
+		i      int
+		output strings.Builder
+	)
+	length := len(p)
+
+	for pc < length && i < CyclesLimit {
+		opcode := p[pc]
+		switch opcode {
+		case '+':
+			memory[dc%MemorySize] += 1
+			pc++
+		case '-':
+			memory[dc%MemorySize] -= 1
+			pc++
+		case '>':
+			dc++
+			pc++
+		case '<':
+			if dc > 0 {
+				dc--
+			}
+			pc++
+		case '.':
+			m := memory[dc%MemorySize]
+			if m < 0 {
+				m = -m
+			}
+			output.WriteRune(Genes[m%len(Genes)])
+			if len([]rune(output.String())) == size {
+				return &output
+			}
+			pc++
+		case ',':
+			memory[dc] = rng.Intn(len(Genes))
+			pc++
+		case '[':
+			if memory[dc] == 0 {
+				pc = p.findMatchingForward(pc) + 1
+			} else {
+				pc++
+			}
+		case ']':
+			if memory[dc] != 0 {
+				pc = p.findMatchingBackward(pc) + 1
+			} else {
+				pc++
+			}
+		default:
+			pc++
+		}
+		i++
+	}
+	return &output
+}
+
+func (p Program) findMatchingForward(position int) int {
+	count, length := 1, len(p)
+	for i := position + 1; i < length; i++ {
+		if p[i] == ']' {
+			count--
+			if count == 0 {
+				return i
+			}
+		} else if p[i] == '[' {
+			count++
+		}
+	}
+
+	return length - 1
+}
+
+func (p Program) findMatchingBackward(position int) int {
+	count := 1
+	for i := position - 1; i >= 0; i-- {
+		if p[i] == '[' {
+			count--
+			if count == 0 {
+				return i
+			}
+		} else if p[i] == ']' {
+			count++
+		}
+	}
+
+	return -1
+}
 
 func main() {
 	flag.Parse()
