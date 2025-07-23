@@ -152,6 +152,8 @@ var (
 	FlagQueens = flag.Bool("queens", false, "8 queens problem")
 	// FlagBF bf mode
 	FlagBF = flag.Bool("bf", false, "bf mode")
+	// FlagFF feed forward mode
+	FlagFF = flag.Bool("ff", false, "feed forward mode")
 	// FlagBuild build the model
 	FlagBuild = flag.Bool("build", false, "build the model")
 )
@@ -201,6 +203,12 @@ func main() {
 	// -
 	if *FlagBF {
 		BF()
+		return
+	}
+
+	//
+	if *FlagFF {
+		FF()
 		return
 	}
 }
