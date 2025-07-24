@@ -156,17 +156,6 @@ func FF() {
 		}
 		fmt.Println(pop[0].Fitness)
 		if pop[0].Fitness == 0 {
-			for x := 0; x < 8; x++ {
-				y := uint(0)
-				for yy := range 3 {
-					y <<= 1
-					if pop[0].Number.Data[3*x+yy] > 0 {
-						y |= 1
-					}
-				}
-				fmt.Printf("%d, ", y)
-			}
-			fmt.Println()
 			break
 		}
 	}
