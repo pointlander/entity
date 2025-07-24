@@ -25,6 +25,9 @@ func FF() {
 		b2 := NewMatrix[float32](3, 1, g[32:35]...)
 		l3 := NewMatrix[float32](3, 4, g[35:47]...)
 		b3 := NewMatrix[float32](4, 1, g[47:51]...)
+		l4 := NewMatrix[float32](4, 4, g[47:63]...)
+		b4 := NewMatrix[float32](4, 1, g[63:67]...)
+		rows := make([][]float32, 0, 8)
 		for _, flower := range iris {
 			input := NewMatrix[float32](4, 1)
 			for _, measure := range flower.Measures {
@@ -52,13 +55,29 @@ func FF() {
 				}
 				entropy += float64(value/sum) * math.Log2(float64(value/sum))
 			}
-			//fitness -= entropy
-			output = l3.MulT(output).Add(b3)
+			fitness -= entropy
+			rows = append(rows, output.Data)
+			output = l3.MulT(output).Add(b3).Sigmoid()
+			output = l4.MulT(output).Add(b4)
 			for i, value := range output.Data {
 				diff := value - float32(flower.Measures[i])
 				fitness += float64(diff * diff)
 			}
 		}
+		entropy := 0.0
+		for i := range 3 {
+			sum := float32(0.0)
+			for _, row := range rows {
+				sum += row[i]
+			}
+			for _, row := range rows {
+				if row[i] == 0 || sum == 0 {
+					continue
+				}
+				entropy += float64(row[i]/sum) * math.Log2(float64(row[i]/sum))
+			}
+		}
+		fitness -= entropy
 		return fitness
 	}
 
@@ -68,7 +87,7 @@ func FF() {
 	}
 
 	const (
-		width      = 4*4 + 4 + 4*3 + 3 + 3*4 + 4
+		width      = 4*4 + 4 + 4*3 + 3 + 3*4 + 4 + 4*4 + 4
 		models     = width / width
 		iterations = 1024
 		population = 8 * 1024
@@ -175,7 +194,58 @@ func FF() {
 			copy(state[ii], pop[ii].Number.Data)
 		}
 		fmt.Println(pop[0].Fitness)
-		if pop[0].Fitness < .1 {
+		for _, flower := range iris {
+			mean := make([]float32, 3)
+			for i := range pop {
+				g := pop[i].Number.Data
+				l1 := NewMatrix[float32](4, 4, g[:16]...)
+				b1 := NewMatrix[float32](4, 1, g[16:20]...)
+				l2 := NewMatrix[float32](4, 3, g[20:32]...)
+				b2 := NewMatrix[float32](3, 1, g[32:35]...)
+				input := NewMatrix[float32](4, 1)
+				for _, measure := range flower.Measures {
+					input.Data = append(input.Data, float32(measure))
+				}
+				output := l1.MulT(input).Add(b1).Sigmoid()
+				output = l2.MulT(output).Add(b2).Sigmoid()
+				for ii := range output.Data {
+					mean[ii] += output.Data[ii]
+				}
+			}
+			for i := range mean {
+				mean[i] /= float32(len(pop))
+			}
+			stddev := make([]float32, 3)
+			for i := range pop {
+				g := pop[i].Number.Data
+				l1 := NewMatrix[float32](4, 4, g[:16]...)
+				b1 := NewMatrix[float32](4, 1, g[16:20]...)
+				l2 := NewMatrix[float32](4, 3, g[20:32]...)
+				b2 := NewMatrix[float32](3, 1, g[32:35]...)
+				input := NewMatrix[float32](4, 1)
+				for _, measure := range flower.Measures {
+					input.Data = append(input.Data, float32(measure))
+				}
+				output := l1.MulT(input).Add(b1).Sigmoid()
+				output = l2.MulT(output).Add(b2).Sigmoid()
+				for ii := range output.Data {
+					diff := mean[ii] - output.Data[ii]
+					stddev[ii] += diff * diff
+				}
+			}
+			for i := range stddev {
+				stddev[i] /= float32(len(pop))
+			}
+			index, min := 0, float32(math.MaxFloat32)
+			for i, value := range stddev {
+				if value < min {
+					min, index = value, i
+				}
+			}
+			fmt.Println(index, flower.Label)
+		}
+
+		if pop[0].Fitness < 100 {
 			g := pop[0].Number.Data
 			l1 := NewMatrix[float32](4, 4, g[:16]...)
 			b1 := NewMatrix[float32](4, 1, g[16:20]...)
