@@ -6,6 +6,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"runtime"
 	"sort"
@@ -17,16 +18,19 @@ func FF() {
 	_ = iris
 	rng := rand.New(rand.NewSource(1))
 	fitness := func(g []float32) float64 {
-		fitness := 150.0
+		fitness := 0.0 //150.0
 		l1 := NewMatrix[float32](4, 4, g[:16]...)
 		b1 := NewMatrix[float32](4, 1, g[16:20]...)
 		l2 := NewMatrix[float32](4, 3, g[20:32]...)
 		b2 := NewMatrix[float32](3, 1, g[32:35]...)
+		l3 := NewMatrix[float32](3, 4, g[35:47]...)
+		b3 := NewMatrix[float32](4, 1, g[47:51]...)
 		for _, flower := range iris {
 			input := NewMatrix[float32](4, 1)
 			for _, measure := range flower.Measures {
 				input.Data = append(input.Data, float32(measure))
 			}
+			entropy := 0.0
 			output := l1.MulT(input).Add(b1).Sigmoid()
 			output = l2.MulT(output).Add(b2).Sigmoid()
 			max, index := float32(0.0), 0
@@ -36,7 +40,23 @@ func FF() {
 				}
 			}
 			if Labels[flower.Label] == index {
-				fitness--
+				//fitness--
+			}
+			sum := float32(0.0)
+			for _, value := range output.Data {
+				sum += value
+			}
+			for _, value := range output.Data {
+				if value == 0 || sum == 0 {
+					continue
+				}
+				entropy += float64(value/sum) * math.Log2(float64(value/sum))
+			}
+			//fitness -= entropy
+			output = l3.MulT(output).Add(b3)
+			for i, value := range output.Data {
+				diff := value - float32(flower.Measures[i])
+				fitness += float64(diff * diff)
 			}
 		}
 		return fitness
@@ -48,7 +68,7 @@ func FF() {
 	}
 
 	const (
-		width      = 4*4 + 4 + 4*3 + 3
+		width      = 4*4 + 4 + 4*3 + 3 + 3*4 + 4
 		models     = width / width
 		iterations = 1024
 		population = 8 * 1024
@@ -155,9 +175,28 @@ func FF() {
 			copy(state[ii], pop[ii].Number.Data)
 		}
 		fmt.Println(pop[0].Fitness)
-		if pop[0].Fitness == 0 {
+		if pop[0].Fitness < .1 {
+			g := pop[0].Number.Data
+			l1 := NewMatrix[float32](4, 4, g[:16]...)
+			b1 := NewMatrix[float32](4, 1, g[16:20]...)
+			l2 := NewMatrix[float32](4, 3, g[20:32]...)
+			b2 := NewMatrix[float32](3, 1, g[32:35]...)
+			for _, flower := range iris {
+				input := NewMatrix[float32](4, 1)
+				for _, measure := range flower.Measures {
+					input.Data = append(input.Data, float32(measure))
+				}
+				output := l1.MulT(input).Add(b1).Sigmoid()
+				output = l2.MulT(output).Add(b2).Sigmoid()
+				max, index := float32(0.0), 0
+				for i, value := range output.Data {
+					if value > max {
+						max, index = value, i
+					}
+				}
+				fmt.Println(index, flower.Label)
+			}
 			break
 		}
 	}
-
 }
