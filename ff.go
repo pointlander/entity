@@ -29,7 +29,7 @@ func FF() {
 				input.Data = append(input.Data, float32(measure))
 			}
 			output := l1.MulT(input).Add(b1).Sigmoid()
-			output = l2.MulT(output).Add(b2).Sigmoid()
+			output = l2.MulT(output).Add(b2).Softmax(1)
 			target := [3]float32{}
 			target[Labels[flower.Label]] = 1.0
 			for i, value := range output.Data {
