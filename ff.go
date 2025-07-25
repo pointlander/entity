@@ -165,7 +165,32 @@ func FF() {
 			copy(state[ii], pop[ii].Number.Data)
 		}
 		fmt.Println(pop[0].Fitness, pop[0].Correct)
-		if pop[0].Correct == 0 {
+		if pop[0].Correct == 149 {
+			g := pop[0].Number.Data
+			correct := 0
+			l1 := NewMatrix[float32](4, 4, g[:16]...)
+			b1 := NewMatrix[float32](4, 1, g[16:20]...)
+			l2 := NewMatrix[float32](4, 3, g[20:32]...)
+			b2 := NewMatrix[float32](3, 1, g[32:35]...)
+			for _, flower := range iris {
+				input := NewMatrix[float32](4, 1)
+				for _, measure := range flower.Measures {
+					input.Data = append(input.Data, float32(measure))
+				}
+				output := l1.MulT(input).Add(b1).Sigmoid()
+				output = l2.MulT(output).Add(b2).Softmax(1)
+				max, index := float32(0.0), 0
+				for i, value := range output.Data {
+					if value > max {
+						max, index = value, i
+					}
+				}
+				if Labels[flower.Label] == index {
+					correct++
+				}
+				fmt.Println(flower.Label, index)
+			}
+
 			break
 		}
 	}
