@@ -16,8 +16,9 @@ func FF() {
 	iris := Load()
 	_ = iris
 	rng := rand.New(rand.NewSource(1))
-	fitness := func(g []float32) float64 {
-		fitness := 150.0
+	fitness := func(g []float32) (int, float64) {
+		fitness := 0.0 //150.0
+		correct := 0
 		l1 := NewMatrix[float32](4, 4, g[:16]...)
 		b1 := NewMatrix[float32](4, 1, g[16:20]...)
 		l2 := NewMatrix[float32](4, 3, g[20:32]...)
@@ -29,6 +30,12 @@ func FF() {
 			}
 			output := l1.MulT(input).Add(b1).Sigmoid()
 			output = l2.MulT(output).Add(b2).Sigmoid()
+			target := [3]float32{}
+			target[Labels[flower.Label]] = 1.0
+			for i, value := range output.Data {
+				diff := value - target[i]
+				fitness += float64(diff * diff)
+			}
 			max, index := float32(0.0), 0
 			for i, value := range output.Data {
 				if value > max {
@@ -36,15 +43,16 @@ func FF() {
 				}
 			}
 			if Labels[flower.Label] == index {
-				fitness--
+				correct++
 			}
 		}
-		return fitness
+		return correct, fitness
 	}
 
 	type Number struct {
 		Number  Matrix[float32]
 		Fitness float64
+		Correct int
 	}
 
 	const (
@@ -127,7 +135,9 @@ func FF() {
 				}
 			}
 			born[ii].Number = NewMatrix(width, 1, vector.Data...)
-			born[ii].Fitness = float64(fitness(born[ii].Number.Data))
+			correct, fit := fitness(born[ii].Number.Data)
+			born[ii].Fitness = fit
+			born[ii].Correct = correct
 			done <- true
 		}
 		ii, flight, cpus = 0, 0, runtime.NumCPU()
@@ -154,8 +164,8 @@ func FF() {
 		for ii := range state {
 			copy(state[ii], pop[ii].Number.Data)
 		}
-		fmt.Println(pop[0].Fitness)
-		if pop[0].Fitness == 0 {
+		fmt.Println(pop[0].Fitness, pop[0].Correct)
+		if pop[0].Correct == 0 {
 			break
 		}
 	}
