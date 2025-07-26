@@ -29,12 +29,6 @@ func FF() {
 			}
 			output := l1.MulT(input).Add(b1).Sigmoid()
 			output = l2.MulT(output).Add(b2).Softmax(1)
-			/*target := [3]float32{}
-			target[Labels[flower.Label]] = 1.0
-			for i, value := range output.Data {
-				diff := value - target[i]
-				fitness += float64(diff * diff)
-			}*/
 			diff := output.Data[Labels[flower.Label]] - 1
 			fitness += float64(diff * diff)
 			max, index := float32(0.0), 0
