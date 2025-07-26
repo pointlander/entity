@@ -33,12 +33,16 @@ func FF() {
 			output = l2.MulT(output).Add(b2).Softmax(1)
 			target := [3]float32{}
 			//target[Labels[flower.Label]] = 1.0
+			idx := 0
 			if gg[index*2] < 0 {
 				target[0] = 1.0
+				idx = 0
 			} else if gg[index*2+1] < 0 {
 				target[1] = 1.0
+				idx = 1
 			} else {
 				target[2] = 1.0
+				idx = 2
 			}
 			for i, value := range output.Data {
 				diff := value - target[i]
@@ -50,7 +54,7 @@ func FF() {
 					max, index = value, i
 				}
 			}
-			if Labels[flower.Label] == index {
+			if idx == index {
 				correct++
 			}
 		}
