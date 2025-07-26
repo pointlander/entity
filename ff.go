@@ -14,7 +14,6 @@ import (
 // FF is the feed forward mode
 func FF() {
 	iris := Load()
-	_ = iris
 	rng := rand.New(rand.NewSource(1))
 	fitness := func(g []float32) (int, float64) {
 		fitness := 0.0 //150.0
@@ -30,12 +29,14 @@ func FF() {
 			}
 			output := l1.MulT(input).Add(b1).Sigmoid()
 			output = l2.MulT(output).Add(b2).Softmax(1)
-			target := [3]float32{}
+			/*target := [3]float32{}
 			target[Labels[flower.Label]] = 1.0
 			for i, value := range output.Data {
 				diff := value - target[i]
 				fitness += float64(diff * diff)
-			}
+			}*/
+			diff := output.Data[Labels[flower.Label]] - 1
+			fitness += float64(diff * diff)
 			max, index := float32(0.0), 0
 			for i, value := range output.Data {
 				if value > max {
