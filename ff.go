@@ -23,8 +23,7 @@ func FF() {
 		b1 := NewMatrix[float32](4, 1, g[16:20]...)
 		l2 := NewMatrix[float32](4, 3, g[20:32]...)
 		b2 := NewMatrix[float32](3, 1, g[32:35]...)
-		gg := g[35:335]
-		for index, flower := range iris {
+		for _, flower := range iris {
 			input := NewMatrix[float32](4, 1)
 			for _, measure := range flower.Measures {
 				input.Data = append(input.Data, float32(measure))
@@ -32,18 +31,7 @@ func FF() {
 			output := l1.MulT(input).Add(b1).Sigmoid()
 			output = l2.MulT(output).Add(b2).Softmax(1)
 			target := [3]float32{}
-			//target[Labels[flower.Label]] = 1.0
-			idx := 0
-			if gg[index*2] < 0 {
-				target[0] = 1.0
-				idx = 0
-			} else if gg[index*2+1] < 0 {
-				target[1] = 1.0
-				idx = 1
-			} else {
-				target[2] = 1.0
-				idx = 2
-			}
+			target[Labels[flower.Label]] = 1.0
 			for i, value := range output.Data {
 				diff := value - target[i]
 				fitness += float64(diff * diff)
@@ -54,11 +42,11 @@ func FF() {
 					max, index = value, i
 				}
 			}
-			if idx == index {
+			if Labels[flower.Label] == index {
 				correct++
 			}
 		}
-		return correct, float64(150 - correct) //fitness
+		return correct, fitness
 	}
 
 	type Number struct {
@@ -68,8 +56,8 @@ func FF() {
 	}
 
 	const (
-		width      = 4*4 + 4 + 4*3 + 3 + 2*150
-		models     = width / 5
+		width      = 4*4 + 4 + 4*3 + 3
+		models     = width / width
 		iterations = 1024
 		population = 8 * 1024
 		cut        = 512
@@ -104,7 +92,7 @@ func FF() {
 					}
 				}
 			}
-			a[ii], _, u[ii] = NewMultiVariateGaussian(.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("number_%d", i), width/5, s)
+			a[ii], _, u[ii] = NewMultiVariateGaussian(.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("number_%d", i), width, s)
 			done <- true
 		}
 		ii, flight, cpus := 0, 0, runtime.NumCPU()
@@ -177,7 +165,7 @@ func FF() {
 			copy(state[ii], pop[ii].Number.Data)
 		}
 		fmt.Println(pop[0].Fitness, pop[0].Correct)
-		if pop[0].Correct >= 146 {
+		if pop[0].Correct >= 149 {
 			g := pop[0].Number.Data
 			correct := 0
 			l1 := NewMatrix[float32](4, 4, g[:16]...)
