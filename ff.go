@@ -15,20 +15,17 @@ import (
 func FF() {
 	iris := Load()
 	rng := rand.New(rand.NewSource(1))
-	fitness := func(g []float32) (int, float64) {
+	fitness := func(g []float32, set Set) (int, float64) {
 		fitness := 0.0 //150.0
 		correct := 0
-		l1 := NewMatrix[float32](4, 4, g[:16]...)
-		b1 := NewMatrix[float32](4, 1, g[16:20]...)
-		l2 := NewMatrix[float32](4, 3, g[20:32]...)
-		b2 := NewMatrix[float32](3, 1, g[32:35]...)
+		matrices := NewMatrices(set, g)
 		for _, flower := range iris {
 			input := NewMatrix[float32](4, 1)
 			for _, measure := range flower.Measures {
 				input.Data = append(input.Data, float32(measure))
 			}
-			output := l1.MulT(input).Add(b1).Sigmoid()
-			output = l2.MulT(output).Add(b2).Softmax(1)
+			output := matrices[0].MulT(input).Add(matrices[1]).Sigmoid()
+			output = matrices[2].MulT(output).Add(matrices[3]).Softmax(1)
 			diff := output.Data[Labels[flower.Label]] - 1
 			fitness += float64(diff * diff)
 			max, index := float32(0.0), 0
@@ -50,9 +47,17 @@ func FF() {
 		Correct int
 	}
 
+	set := Set{
+		Sizes: []Size{
+			{4, 4},
+			{4, 1},
+			{4, 3},
+			{3, 1},
+		},
+	}
+	width := set.Size()
+	models := width / width
 	const (
-		width      = 4*4 + 4 + 4*3 + 3
-		models     = width / width
 		iterations = 1024
 		population = 8 * 1024
 		cut        = 512
@@ -67,7 +72,6 @@ func FF() {
 	pop := make([]Number, population)
 
 	for i := 0; i < iterations; i++ {
-		graph := false //i == 0 || i == iterations-1
 		translate := make([]int, width)
 		for i := range translate {
 			translate[i] = i % models
@@ -75,7 +79,7 @@ func FF() {
 		rng.Shuffle(width, func(i, j int) {
 			translate[i], translate[j] = translate[j], translate[i]
 		})
-		var a, u [models]Matrix[float32]
+		a, u := make([]Matrix[float32], models), make([]Matrix[float32], models)
 		done := make(chan bool, 8)
 		process := func(ii int, seed int64) {
 			rng := rand.New(rand.NewSource(seed))
@@ -87,7 +91,7 @@ func FF() {
 					}
 				}
 			}
-			a[ii], _, u[ii] = NewMultiVariateGaussian(.0001, 1.0e-1, graph, false, rng, fmt.Sprintf("number_%d", i), width, s)
+			a[ii], _, u[ii] = NewMultiVariateGaussian(.0001, 1.0e-1, false, false, rng, fmt.Sprintf("ff_%d", i), width, s)
 			done <- true
 		}
 		ii, flight, cpus := 0, 0, runtime.NumCPU()
@@ -130,7 +134,7 @@ func FF() {
 				}
 			}
 			born[ii].Number = NewMatrix(width, 1, vector.Data...)
-			correct, fit := fitness(born[ii].Number.Data)
+			correct, fit := fitness(born[ii].Number.Data, set)
 			born[ii].Fitness = fit
 			born[ii].Correct = correct
 			done <- true
@@ -163,17 +167,14 @@ func FF() {
 		if pop[0].Correct >= 149 {
 			g := pop[0].Number.Data
 			correct := 0
-			l1 := NewMatrix[float32](4, 4, g[:16]...)
-			b1 := NewMatrix[float32](4, 1, g[16:20]...)
-			l2 := NewMatrix[float32](4, 3, g[20:32]...)
-			b2 := NewMatrix[float32](3, 1, g[32:35]...)
+			matrices := NewMatrices(set, g)
 			for _, flower := range iris {
 				input := NewMatrix[float32](4, 1)
 				for _, measure := range flower.Measures {
 					input.Data = append(input.Data, float32(measure))
 				}
-				output := l1.MulT(input).Add(b1).Sigmoid()
-				output = l2.MulT(output).Add(b2).Softmax(1)
+				output := matrices[0].MulT(input).Add(matrices[1]).Sigmoid()
+				output = matrices[2].MulT(output).Add(matrices[3]).Softmax(1)
 				max, index := float32(0.0), 0
 				for i, value := range output.Data {
 					if value > max {

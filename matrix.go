@@ -24,10 +24,20 @@ type Float interface {
 	float32 | float64
 }
 
-// Matrix is a float64 matrix
-type Matrix[T Float] struct {
+// Size is the size of the matrix
+type Size struct {
 	Cols int
 	Rows int
+}
+
+// Set is a set of sizes
+type Set struct {
+	Sizes []Size
+}
+
+// Matrix is a float64 matrix
+type Matrix[T Float] struct {
+	Size
 	Data []T
 }
 
@@ -37,10 +47,32 @@ func NewMatrix[T Float](cols, rows int, data ...T) Matrix[T] {
 		data = make([]T, 0, cols*rows)
 	}
 	return Matrix[T]{
-		Cols: cols,
-		Rows: rows,
+		Size: Size{
+			Cols: cols,
+			Rows: rows,
+		},
 		Data: data,
 	}
+}
+
+// NewMatrices creates matrices from a set
+func NewMatrices[T Float](set Set, weights []T) []Matrix[T] {
+	offset, matrices := 0, make([]Matrix[T], len(set.Sizes))
+	for i, size := range set.Sizes {
+		end := size.Cols * size.Rows
+		matrices[i] = NewMatrix(size.Cols, size.Rows, weights[offset:offset+end]...)
+		offset += end
+	}
+	return matrices
+}
+
+// Size is the size of the weight vector
+func (s Set) Size() int {
+	sum := 0
+	for _, size := range s.Sizes {
+		sum += size.Cols * size.Rows
+	}
+	return sum
 }
 
 // MulT multiplies two matrices and computes the transpose
@@ -50,8 +82,10 @@ func (m Matrix[T]) MulT(n Matrix[T]) Matrix[T] {
 	}
 	columns := m.Cols
 	o := Matrix[T]{
-		Cols: m.Rows,
-		Rows: n.Rows,
+		Size: Size{
+			Cols: m.Rows,
+			Rows: n.Rows,
+		},
 		Data: make([]T, 0, m.Rows*n.Rows),
 	}
 	lenn, lenm := len(n.Data), len(m.Data)
@@ -73,8 +107,10 @@ func (m Matrix[T]) Add(n Matrix[T]) Matrix[T] {
 	}
 
 	o := Matrix[T]{
-		Cols: m.Cols,
-		Rows: m.Rows,
+		Size: Size{
+			Cols: m.Cols,
+			Rows: m.Rows,
+		},
 		Data: make([]T, 0, m.Cols*m.Rows),
 	}
 	for i, value := range m.Data {
@@ -91,8 +127,10 @@ func (m Matrix[T]) Sub(n Matrix[T]) Matrix[T] {
 	}
 
 	o := Matrix[T]{
-		Cols: m.Cols,
-		Rows: m.Rows,
+		Size: Size{
+			Cols: m.Cols,
+			Rows: m.Rows,
+		},
 		Data: make([]T, 0, m.Cols*m.Rows),
 	}
 	for i, value := range m.Data {
@@ -109,8 +147,10 @@ func (m Matrix[T]) Hadamard(n Matrix[T]) Matrix[T] {
 	}
 
 	o := Matrix[T]{
-		Cols: m.Cols,
-		Rows: m.Rows,
+		Size: Size{
+			Cols: m.Cols,
+			Rows: m.Rows,
+		},
 		Data: make([]T, 0, m.Cols*m.Rows),
 	}
 	for i, value := range m.Data {
@@ -147,8 +187,10 @@ func (m Matrix[T]) Softmax(t T) Matrix[T] {
 // Sigmoid computes the sigmoid of a matrix
 func (m Matrix[T]) Sigmoid() Matrix[T] {
 	o := Matrix[T]{
-		Cols: m.Cols,
-		Rows: m.Rows,
+		Size: Size{
+			Cols: m.Cols,
+			Rows: m.Rows,
+		},
 		Data: make([]T, 0, m.Cols*m.Rows),
 	}
 	for _, value := range m.Data {
@@ -173,8 +215,10 @@ func (m Matrix[T]) Entropy() Matrix[T] {
 // Sum sums the rows of a matrix
 func (m Matrix[T]) Sum() Matrix[T] {
 	o := Matrix[T]{
-		Cols: m.Cols,
-		Rows: 1,
+		Size: Size{
+			Cols: m.Cols,
+			Rows: 1,
+		},
 		Data: make([]T, m.Cols),
 	}
 	for i := 0; i < m.Rows; i++ {
@@ -189,8 +233,10 @@ func (m Matrix[T]) Sum() Matrix[T] {
 // T tramsposes a matrix
 func (m Matrix[T]) T() Matrix[T] {
 	o := Matrix[T]{
-		Cols: m.Rows,
-		Rows: m.Cols,
+		Size: Size{
+			Cols: m.Rows,
+			Rows: m.Cols,
+		},
 		Data: make([]T, 0, m.Cols*m.Rows),
 	}
 	for i := 0; i < m.Cols; i++ {
@@ -327,8 +373,10 @@ func softmax[T Float](values []T) {
 // SelfAttention computes the self attention of Q, K, V
 func SelfAttention[T Float](Q, K, V Matrix[T]) Matrix[T] {
 	o := Matrix[T]{
-		Cols: V.Cols,
-		Rows: K.Rows,
+		Size: Size{
+			Cols: V.Cols,
+			Rows: K.Rows,
+		},
 		Data: make([]T, 0, V.Rows*K.Rows),
 	}
 	outputs, values := make([]T, V.Cols), make([]T, Q.Rows)
