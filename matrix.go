@@ -434,7 +434,7 @@ func Transformer[T Float](set Set[T], inputs, outputs Matrix[T]) Matrix[T] {
 		set.Named("inK").MulT(embeddingIn),
 		set.Named("inV").MulT(embeddingIn)).
 		Add(embeddingIn)
-	l1In := set.Named("l1In").MulT(formIn).Add(set.Named("b1In")).Add(formIn)
+	l1In := set.Named("l1In").MulT(formIn).Add(set.Named("b1In")).Sigmoid().Add(formIn)
 
 	embeddingOut := set.Named("lembeddingOut").MulT(out).Add(set.Named("bembeddingOut")).Sigmoid()
 	formOut := SelfAttention(set.Named("outQ1").MulT(embeddingOut),
@@ -445,6 +445,6 @@ func Transformer[T Float](set Set[T], inputs, outputs Matrix[T]) Matrix[T] {
 		set.Named("outK2").MulT(l1In),
 		set.Named("outV2").MulT(l1In)).
 		Add(formOut)
-	l1Out := set.Named("l1Out").MulT(formOut1).Add(set.Named("b1Out")).Add(formOut1)
+	l1Out := set.Named("l1Out").MulT(formOut1).Add(set.Named("b1Out")).Sigmoid().Add(formOut1)
 	return set.Named("linear").MulT(l1Out).Softmax(1)
 }
