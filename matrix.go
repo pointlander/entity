@@ -408,3 +408,43 @@ func SelfAttention[T Float](Q, K, V Matrix[T]) Matrix[T] {
 	}
 	return o
 }
+
+// Transformer implements transform inference
+func Transformer[T Float](set Set[T], inputs, outputs Matrix[T]) Matrix[T] {
+	itags := set.Named("itags")
+	if inputs.Rows != itags.Rows {
+		panic("rows should be the same")
+	}
+	in := NewMatrix[T](itags.Cols+inputs.Cols, inputs.Rows)
+	for i := 0; i < itags.Rows; i++ {
+		in.Data = append(in.Data, itags.Data[i*itags.Cols:(i+1)*itags.Cols]...)
+		in.Data = append(in.Data, inputs.Data[i*inputs.Cols:(i+1)*inputs.Cols]...)
+	}
+	otags := set.Named("otags")
+	if outputs.Rows != otags.Rows {
+		panic("rows should be the same")
+	}
+	out := NewMatrix[T](otags.Cols+outputs.Cols, outputs.Rows)
+	for i := 0; i < otags.Rows; i++ {
+		out.Data = append(out.Data, otags.Data[i*otags.Cols:(i+1)*otags.Cols]...)
+		out.Data = append(out.Data, outputs.Data[i*outputs.Cols:(i+1)*outputs.Cols]...)
+	}
+	embeddingIn := set.Named("lembeddingIn").MulT(in).Add(set.Named("bembeddingIn")).Sigmoid()
+	formIn := SelfAttention(set.Named("inQ").MulT(embeddingIn),
+		set.Named("inK").MulT(embeddingIn),
+		set.Named("inV").MulT(embeddingIn)).
+		Add(embeddingIn)
+	l1In := set.Named("l1In").MulT(formIn).Add(set.Named("b1In")).Add(formIn)
+
+	embeddingOut := set.Named("lembeddingOut").MulT(out).Add(set.Named("bembeddingOut")).Sigmoid()
+	formOut := SelfAttention(set.Named("outQ1").MulT(embeddingOut),
+		set.Named("outK1").MulT(embeddingOut),
+		set.Named("outV1").MulT(embeddingOut)).
+		Add(embeddingOut)
+	formOut1 := SelfAttention(set.Named("outQ2").MulT(formOut),
+		set.Named("outK2").MulT(l1In),
+		set.Named("outV2").MulT(l1In)).
+		Add(formOut)
+	l1Out := set.Named("l1Out").MulT(formOut1).Add(set.Named("b1Out")).Add(formOut1)
+	return set.Named("linear").MulT(l1Out).Softmax(1)
+}
