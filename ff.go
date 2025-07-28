@@ -15,17 +15,17 @@ import (
 func FF() {
 	iris := Load()
 	rng := rand.New(rand.NewSource(1))
-	fitness := func(g []float32, set Set) (int, float64) {
+	fitness := func(g []float32, set Set[float32]) (int, float64) {
 		fitness := 0.0 //150.0
 		correct := 0
-		matrices := NewMatrices(set, g)
+		s := NewMatrices(set, g)
 		for _, flower := range iris {
 			input := NewMatrix[float32](4, 1)
 			for _, measure := range flower.Measures {
 				input.Data = append(input.Data, float32(measure))
 			}
-			output := matrices[0].MulT(input).Add(matrices[1]).Sigmoid()
-			output = matrices[2].MulT(output).Add(matrices[3]).Softmax(1)
+			output := s.Named("l1").MulT(input).Add(s.Named("b1")).Sigmoid()
+			output = s.Named("l2").MulT(output).Add(s.Named("b2")).Softmax(1)
 			diff := output.Data[Labels[flower.Label]] - 1
 			fitness += float64(diff * diff)
 			max, index := float32(0.0), 0
@@ -47,12 +47,12 @@ func FF() {
 		Correct int
 	}
 
-	set := Set{
+	set := Set[float32]{
 		Sizes: []Size{
-			{4, 4},
-			{4, 1},
-			{4, 3},
-			{3, 1},
+			{"l1", 4, 4},
+			{"b1", 4, 1},
+			{"l2", 4, 3},
+			{"b2", 3, 1},
 		},
 	}
 	width := set.Size()
@@ -167,14 +167,14 @@ func FF() {
 		if pop[0].Correct >= 149 {
 			g := pop[0].Number.Data
 			correct := 0
-			matrices := NewMatrices(set, g)
+			s := NewMatrices(set, g)
 			for _, flower := range iris {
 				input := NewMatrix[float32](4, 1)
 				for _, measure := range flower.Measures {
 					input.Data = append(input.Data, float32(measure))
 				}
-				output := matrices[0].MulT(input).Add(matrices[1]).Sigmoid()
-				output = matrices[2].MulT(output).Add(matrices[3]).Softmax(1)
+				output := s.Named("l1").MulT(input).Add(s.Named("b1")).Sigmoid()
+				output = s.Named("l2").MulT(output).Add(s.Named("b2")).Softmax(1)
 				max, index := float32(0.0), 0
 				for i, value := range output.Data {
 					if value > max {

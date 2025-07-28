@@ -26,13 +26,16 @@ type Float interface {
 
 // Size is the size of the matrix
 type Size struct {
+	Name string
 	Cols int
 	Rows int
 }
 
 // Set is a set of sizes
-type Set struct {
-	Sizes []Size
+type Set[T Float] struct {
+	Sizes   []Size
+	ByIndex []Matrix[T]
+	ByName  map[string]*Matrix[T]
 }
 
 // Matrix is a float64 matrix
@@ -56,23 +59,31 @@ func NewMatrix[T Float](cols, rows int, data ...T) Matrix[T] {
 }
 
 // NewMatrices creates matrices from a set
-func NewMatrices[T Float](set Set, weights []T) []Matrix[T] {
-	offset, matrices := 0, make([]Matrix[T], len(set.Sizes))
+func NewMatrices[T Float](set Set[T], weights []T) Set[T] {
+	offset := 0
+	set.ByIndex = make([]Matrix[T], len(set.Sizes))
+	set.ByName = make(map[string]*Matrix[T])
 	for i, size := range set.Sizes {
 		end := size.Cols * size.Rows
-		matrices[i] = NewMatrix(size.Cols, size.Rows, weights[offset:offset+end]...)
+		set.ByIndex[i] = NewMatrix(size.Cols, size.Rows, weights[offset:offset+end]...)
+		set.ByName[size.Name] = &set.ByIndex[i]
 		offset += end
 	}
-	return matrices
+	return set
 }
 
 // Size is the size of the weight vector
-func (s Set) Size() int {
+func (s Set[T]) Size() int {
 	sum := 0
 	for _, size := range s.Sizes {
 		sum += size.Cols * size.Rows
 	}
 	return sum
+}
+
+// Named returns the matrix named name
+func (s Set[T]) Named(name string) Matrix[T] {
+	return *s.ByName[name]
 }
 
 // MulT multiplies two matrices and computes the transpose
