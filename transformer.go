@@ -6,7 +6,9 @@ package main
 
 import (
 	"compress/bzip2"
+	"fmt"
 	"io"
+	"math/rand"
 )
 
 // T is a transformer
@@ -33,4 +35,46 @@ func T() {
 		}
 	}
 
+	rng := rand.New(rand.NewSource(1))
+
+	set := Set[float32]{
+		Sizes: []Size{
+			{"itags", 8, 100},
+			{"otags", 8, 100},
+			{"lembeddingIn", 8 + 256, 32},
+			{"bembeddingIn", 32, 1},
+			{"inQ", 32, 32},
+			{"inK", 32, 32},
+			{"inV", 32, 32},
+			{"l1In", 32, 32},
+			{"b1In", 32, 1},
+			{"lembeddingOut", 8 + 256, 32},
+			{"bembeddingOut", 32, 1},
+			{"outQ1", 32, 32},
+			{"outK1", 32, 32},
+			{"outV1", 32, 32},
+			{"outQ2", 32, 32},
+			{"outK2", 32, 32},
+			{"outV2", 32, 32},
+			{"l1Out", 32, 32},
+			{"b1Out", 32, 1},
+			{"linear", 32, 256},
+		},
+	}
+	width := set.Size() / 4760
+	fmt.Println(width, set.Size())
+	inputs := NewMatrix[float32](256, 100)
+	for range inputs.Cols * inputs.Rows {
+		inputs.Data = append(inputs.Data, 0)
+	}
+	outputs := NewMatrix[float32](256, 100)
+	for range outputs.Cols * outputs.Rows {
+		outputs.Data = append(outputs.Data, 0)
+	}
+	g := make([]float32, set.Size())
+	for i := range g {
+		g[i] = float32(rng.NormFloat64())
+	}
+	s := NewMatrices(set, g)
+	Transformer(s, inputs, outputs)
 }
