@@ -154,6 +154,8 @@ var (
 	FlagBF = flag.Bool("bf", false, "bf mode")
 	// FlagFF feed forward mode
 	FlagFF = flag.Bool("ff", false, "feed forward mode")
+	// FlagTransformer transformer mode
+	FlagTransformer = flag.Bool("t", false, "transformer mode")
 	// FlagBuild build the model
 	FlagBuild = flag.Bool("build", false, "build the model")
 )
@@ -206,9 +208,15 @@ func main() {
 		return
 	}
 
-	//
+	// +
 	if *FlagFF {
 		FF()
+		return
+	}
+
+	//
+	if *FlagTransformer {
+		T()
 		return
 	}
 }
