@@ -156,6 +156,8 @@ var (
 	FlagFF = flag.Bool("ff", false, "feed forward mode")
 	// FlagTransformer transformer mode
 	FlagTransformer = flag.Bool("t", false, "transformer mode")
+	// FlagEntropy entropy mode
+	FlagEntropy = flag.Bool("e", false, "entropy mode")
 	// FlagBuild build the model
 	FlagBuild = flag.Bool("build", false, "build the model")
 )
@@ -214,9 +216,14 @@ func main() {
 		return
 	}
 
-	//
+	// ?
 	if *FlagTransformer {
 		T()
+		return
+	}
+
+	if *FlagEntropy {
+		Entropy()
 		return
 	}
 }
