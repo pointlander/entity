@@ -214,6 +214,24 @@ func (m Matrix[T]) Sigmoid() Matrix[T] {
 	return o
 }
 
+// ReLu is the ramp function
+func (m Matrix[T]) ReLu() Matrix[T] {
+	o := Matrix[T]{
+		Size: Size{
+			Cols: m.Cols,
+			Rows: m.Rows,
+		},
+		Data: make([]T, 0, m.Cols*m.Rows),
+	}
+	for _, value := range m.Data {
+		if value < 0 {
+			value = 0
+		}
+		o.Data = append(o.Data, value)
+	}
+	return o
+}
+
 // Entropy calculates the entropy of the matrix rows
 func (m Matrix[T]) Entropy() Matrix[T] {
 	output := NewMatrix[T](m.Rows, 1)
@@ -433,14 +451,14 @@ func Transformer[T Float](set Set[T], inputs, outputs Matrix[T]) Matrix[T] {
 		out.Data = append(out.Data, otags.Data[i*otags.Cols:(i+1)*otags.Cols]...)
 		out.Data = append(out.Data, outputs.Data[i*outputs.Cols:(i+1)*outputs.Cols]...)
 	}
-	embeddingIn := set.Named("lembeddingIn").MulT(in).Add(set.Named("bembeddingIn")).Sigmoid()
+	embeddingIn := set.Named("lembeddingIn").MulT(in).Add(set.Named("bembeddingIn")).ReLu()
 	formIn := SelfAttention(set.Named("inQ").MulT(embeddingIn),
 		set.Named("inK").MulT(embeddingIn),
 		set.Named("inV").MulT(embeddingIn)).
 		Add(embeddingIn)
-	l1In := set.Named("l1In").MulT(formIn).Add(set.Named("b1In")).Sigmoid().Add(formIn)
+	l1In := set.Named("l1In").MulT(formIn).Add(set.Named("b1In")).ReLu().Add(formIn)
 
-	embeddingOut := set.Named("lembeddingOut").MulT(out).Add(set.Named("bembeddingOut")).Sigmoid()
+	embeddingOut := set.Named("lembeddingOut").MulT(out).Add(set.Named("bembeddingOut")).ReLu()
 	formOut := SelfAttention(set.Named("outQ1").MulT(embeddingOut),
 		set.Named("outK1").MulT(embeddingOut),
 		set.Named("outV1").MulT(embeddingOut)).
@@ -449,6 +467,6 @@ func Transformer[T Float](set Set[T], inputs, outputs Matrix[T]) Matrix[T] {
 		set.Named("outK2").MulT(l1In),
 		set.Named("outV2").MulT(l1In)).
 		Add(formOut)
-	l1Out := set.Named("l1Out").MulT(formOut1).Add(set.Named("b1Out")).Sigmoid().Add(formOut1)
+	l1Out := set.Named("l1Out").MulT(formOut1).Add(set.Named("b1Out")).ReLu().Add(formOut1)
 	return set.Named("linear").MulT(l1Out).Softmax(1)
 }
