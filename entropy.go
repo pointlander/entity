@@ -183,9 +183,24 @@ func Entropy() {
 		if pop[0].Fitness < .8 {
 			g := pop[0].Number.Data
 			s := NewMatrices(set, g)
+			fmt.Println("input")
 			for ii := range s.ByIndex[0].Rows {
 				for iii := range s.ByIndex[0].Cols {
 					if s.ByIndex[0].Data[ii*s.ByIndex[0].Cols+iii] > 0 {
+						fmt.Printf(" 1")
+					} else {
+						fmt.Printf(" 0")
+					}
+				}
+				fmt.Println()
+			}
+			fmt.Println()
+
+			fmt.Println("output")
+			ss := SelfAttention(s.ByIndex[0], s.ByIndex[0], s.ByIndex[0])
+			for ii := range ss.Rows {
+				for iii := range ss.Cols {
+					if ss.Data[ii*ss.Cols+iii] > 0 {
 						fmt.Printf(" 1")
 					} else {
 						fmt.Printf(" 0")
