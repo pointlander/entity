@@ -66,6 +66,10 @@ func NewMatrices[T Float](set Set[T], weights []T) Set[T] {
 	for i, size := range set.Sizes {
 		end := size.Cols * size.Rows
 		set.ByIndex[i] = NewMatrix(size.Cols, size.Rows, weights[offset:offset+end]...)
+		factor := math.Sqrt(2.0 / float64(size.Cols))
+		for ii := range set.ByIndex[i].Data {
+			set.ByIndex[i].Data[ii] *= T(factor)
+		}
 		set.ByName[size.Name] = &set.ByIndex[i]
 		offset += end
 	}
