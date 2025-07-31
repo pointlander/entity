@@ -58,7 +58,12 @@ func Entropy() {
 			b -= (value / sum) * math.Log2(value/sum)
 		}
 		diff := b / a
-		fitness += diff * diff
+		_ = diff
+		//fitness += diff * diff
+		for i, value := range g {
+			diff := value - ss.Data[i]
+			fitness += float64(diff * diff)
+		}
 		return fitness
 	}
 
@@ -180,7 +185,7 @@ func Entropy() {
 			copy(state[ii], pop[ii].Number.Data)
 		}
 		fmt.Println(pop[0].Fitness)
-		if pop[0].Fitness < .8 {
+		if pop[0].Fitness < .01 {
 			g := pop[0].Number.Data
 			s := NewMatrices(set, g)
 			fmt.Println("input")
